@@ -18,6 +18,10 @@ Arguments:
             0 = zero flux BC
             1 = zero incoming flux BC
             2 = reflective BC
+
+Returns:
+    A:      Loss matrix
+    F:      Fission matrix
 '''
 def formMatrixProblem(XSdata, delta, BC):
     
@@ -210,7 +214,7 @@ def eigen_solver(A, F, k=1, N=None, G=2, tol = 10**-6, inner_tol = 10**-6,
     phi = np.matrix(phi)
 
     # initialize total fission source
-    total_fission = F * phi
+    S = F * phi
 
     # track number of inner iterations
     sum_inner_iters = 0
@@ -235,12 +239,11 @@ def eigen_solver(A, F, k=1, N=None, G=2, tol = 10**-6, inner_tol = 10**-6,
         k = np.dot(phi_new.getT(), phi) / np.dot(phi.getT(), phi)
 
         # create new fission sources
-        total_fission = F * phi
         temp = F * phi_new
         
         # calculate residual
         res = 0
-        for f_new, f_old in zip(temp, total_fission):
+        for f_new, f_old in zip(temp, S):
             if f_new != 0:
                 res += (k*f_old / f_new - 1)**2
         res /= N
@@ -259,7 +262,7 @@ def eigen_solver(A, F, k=1, N=None, G=2, tol = 10**-6, inner_tol = 10**-6,
     result['keff'] = k
     result['outer_iters'] = i+1
     result['power'] = F*phi
-    result['inner_iters'] = sum_inner_iters / (i+1)
+    result['inner_iters'] = sum_inner_iters / float(i+1)
     
     print "Source converged in ", result['outer_iters'], " outer iterations"
     return result

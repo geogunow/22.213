@@ -3,4 +3,7 @@
 #include<vector>
 #include<string>
 
-std::vector<double> zeros(int N);
+#define endl "\n"
+
+double dot(std::vector<double> x1, std::vector<double> x2);
+void printVector(std::vector<double> x);

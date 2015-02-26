@@ -1,14 +1,8 @@
-#include"utils.h"
-
-/*
-   Tuple structure for storing index, value pairs
-   */
-template <typename T>
-struct Tuple
-{
-    int index;
-    T value;
-};
+#include<iostream>
+#include<cstdio>
+#include<vector>
+#include<string>
+#include<map>
 
 #define endl "\n"
 
@@ -17,7 +11,7 @@ class Sparse {
     private:
         
         // spase matrix indexes and elements
-        std::vector<std::vector<Tuple<double> > > _vals;
+        std::vector<std::map<int,double> > _vals;
 
         // matrix dimensions
         int _M;
@@ -28,9 +22,11 @@ class Sparse {
         Sparse(int M, int N);
         virtual ~Sparse();
         std::vector<double> operator * (const std::vector<double> x) const;
-        double & setVal(int i, int j, double value);
+        void setVal(int i, int j, double value);
         double getVal(int i, int j);
         std::vector<std::vector<double> > dense(void);
-        double operator() (int i, int j) const;
-        double & operator() (int i, int j);
+        double operator() (int i, int j);
+        void display(void);
+        Sparse transpose(void);
+        int size(void);
 };

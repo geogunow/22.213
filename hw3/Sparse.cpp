@@ -9,13 +9,10 @@ Sparse::Sparse(int M, int N){
     _M = M;
     _N = N;
 
-    // intialize values
-   
-
     // fill rows with empty vectors
     for(int i=0; i<M; i++)
     {
-        std::vector<Tuple<double> > *row = new std::vector<Tuple<double> >;
+        std::map<int,double> *row = new std::map<int,double>;
         _vals.push_back( *row );
     }
 }
@@ -28,36 +25,16 @@ Sparse::~Sparse() { }
 /*
    Operator overloading to set matrix values
    */
-double & Sparse::setVal(int i, int j, double value)
+void Sparse::setVal(int i, int j, double value)
 {
     // check matrix dimensions
     if(i >= _M or j >= _N)
         std::cout << "Error: matrix dimension exceeed" << endl;
 
-    // find location to place element TODO: improve speed
-    int n = 0;
-    while(n < _vals[i].size())
-    {
-        if(_vals[i][n].index == j)
-        {
-            _vals[i][n].value = value;
-            return _vals[i][n].value;
-        }
-        else if(_vals[i][n].index > j)
-            break;
-        else
-            n++;
-    }
+    // add the value to the map
+    _vals[i][j] = value;
 
-    // create new tuple
-    Tuple<double> item;
-    item.index = j;
-    item.value = value;
-
-    // insert tuple into the values array
-    std::vector<Tuple<double> >::iterator it = _vals[i].begin() + n;
-    _vals[i].insert(it, item);
-    return _vals[i][n].value;
+    return;
 }
 
 /*
@@ -69,13 +46,14 @@ double Sparse::getVal(int i, int j)
     if(i >= _M or j >= _N)
         std::cout << "Error: matrix dimension exceeed" << endl;
 
-    // search for matching index
-    for(int n=0; n < _vals[i].size(); n++)
-    {
-        if(_vals[i][n].index == j)
-            return _vals[i][n].value;
-    }
-    return 0;
+    // get the location of the value
+    std::map<int,double>::iterator it = _vals[i].find(j);
+
+    // check if the value was found
+    if( it != _vals[i].end() )
+        return it->second;
+    else
+        return 0;
 }
 
 /*
@@ -89,11 +67,12 @@ std::vector<double> Sparse::operator * (const std::vector<double> x) const
     // loop through rows in sparse matrix
     for(int i=0; i < _M; i++)
     {
-       for(int n=0; n < _vals[i].size(); n++)
+       std::map<int,double>::const_iterator it = _vals[i].begin();
+       for(it = _vals[i].begin(); it != _vals[i].end(); ++it)
        {
            // load matrix elements
-           int j = _vals[i][n].index;
-           double v = _vals[i][n].value;
+           int j = it->first;
+           double v = it->second;
 
            // add element-wise dot product
            b[i] += x[j] * v;
@@ -107,27 +86,9 @@ std::vector<double> Sparse::operator * (const std::vector<double> x) const
 /*
    Paranthesis overloaded for getting matrix values
    */
-double Sparse::operator () (int i, int j) const
+double Sparse::operator () (int i, int j)
 {   
-    // check matrix dimensions
-    if(i >= _M or j >= _N)
-        std::cout << "Error: matrix dimension exceeed" << endl;
-
-    // search for matching index
-    for(int n=0; n < _vals[i].size(); n++)
-    {
-        if(_vals[i][n].index == j)
-            return _vals[i][n].value;
-    }
-    return 0;
-}
-
-/*
-   Parenthesis overloading for setting matrix values
-   */
-double & Sparse::operator() (int i, int j)
-{
-    return this->setVal(i,j,0);
+    return this->getVal(i,j);
 }
 
 /*
@@ -145,10 +106,60 @@ std::vector<std::vector<double> > Sparse::dense(void)
         for(int j=0; j<_N; j++)
         {
             double value = this->getVal(i,j);
-            //double value = this->getVal(i,j);
             row->push_back(value);
         }
         A.push_back(*row);
     }
     return A;
+}
+
+/*
+   Function that prints the matrix to the screen
+   */
+void Sparse::display(void)
+{
+    for(int i=0; i<_M; i++)
+    {
+        std::printf("[");
+        for(int j=0; j<_N; j++)
+        {
+            std::printf("%f", this->getVal(i,j));
+            if( j != _N-1)
+                std::printf(", ");
+            else
+                std::printf("]");
+        }
+        std::printf(endl);
+    }
+    return;
+}
+
+/*
+   function that returns the transpose of the matrix
+   */
+Sparse Sparse::transpose(void)
+{
+    // initialize new matrix
+    Sparse T = Sparse(_N, _M);
+
+    // cycle through the values in the matrix
+    for(int i=0; i<_M; i++)
+    {
+        std::map<int,double>::iterator it;
+        for(it = _vals[i].begin(); it != _vals[i].end(); ++it)
+        {
+            // get the item in the matrix
+            int j = it->first;
+            double v = it->second;
+
+            // add the element to the transposed index
+            T.setVal(j,i,v);
+        }
+    }
+    return T;
+}
+
+// returns the number of rows in the sparse matrix
+int Sparse::size(void){
+    return _M;
 }

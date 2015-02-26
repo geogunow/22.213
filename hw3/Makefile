@@ -19,6 +19,7 @@ program = diffSolver
 
 source = \
 main.cpp \
+diffSolver.cpp \
 Sparse.cpp \
 utils.cpp
 
