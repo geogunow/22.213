@@ -1,13 +1,85 @@
 #include"diffSolver.h"
 
 /*
+   Function for solving a diffusion problem given a mesh with boundary
+   conditions. This function is designed for easy communication with Python
+   via Swig.
+    Arguments:
+        - mesh:         Mesh object that contains region spacing, cross 
+                        sections, and boundary condition information
+        - outer_tol:    fission source iteration tolerance
+        - inner_tol:    flux solver tolerance
+        - maxiters:     maximum fission source iterations 
+        - inner_solver: an integer identifying the flux solution solver
+                        options: 0 = Point Jacobi, 1 = Gauss-Seidel
+
+    Output:
+        An eigenSolution struct containing the following information:
+            - 'flux': solution vector of the eigenvalue problem
+            - 'keff': eigenvalue of the solution (largest eigenvalue)
+            - 'power': the fission production corresponding to the solution
+            - 'outer_iters': number of fission source iterations needed
+            - 'inner_iters': average number of flux solution iterations needed
+ */
+eigenSolution solveDiffusion(Mesh mesh, double outer_tol, double inner_tol,
+        int maxiters, int inner_solver)
+{
+
+    // error checking
+    eigenSolution NULL_solution = eigenSolution();
+    if( mesh._N == 0 )
+    {
+        std::cout << "Error: failed to set mesh correctly" << endl;
+        return NULL_solution;
+    }
+    if( mesh._G == 0)
+    {
+        std::cout << "Error: failed to set materials correctly" << endl;
+        return NULL_solution;
+    }
+    if( mesh._BC.left == -1)
+    {
+        std::cout << "Error: failed to set boundary conditions" << endl;
+        return NULL_solution;
+    }
+    if( mesh._BC.right == -1)
+    {
+        std::cout << "Error: failed to set boundary conditions" << endl;
+        return NULL_solution;
+    }
+    if( mesh._delta.size() == 0)
+    {
+        std::cout << "Error: failed to set mesh widths" << endl;
+        return NULL_solution;
+    }
+
+    // initialize matrices
+    int N = mesh._N;
+    int G = mesh._G; 
+    Sparse A = Sparse(N*G, N*G);
+    Sparse F = Sparse(N*G, N*G);
+    Indexer index = Indexer(N,G);
+
+    N = mesh._nodes;
+   
+    // form matrices
+    formMatrixProblem(mesh, A, F, index);
+
+    // solve eigenvalue problem
+    eigenSolution result = eigen_solver(A, F, N, G, outer_tol, inner_tol, 
+            maxiters, inner_solver);
+
+    // index soltion vectors by groups
+    result.indexArrays(index);
+
+    return result;
+}
+
+/*
     Forms the loss and fission matricies from given XSdata and a defined mesh
     with boundary conditions BC
     Arguments:
-        mesh:   Mesh struct that contains region spacing and cross sections
-        BC:     BoundaryConditions struct that contains values describing the
-                desired boundary conditions associated with the problem
-                options:
+        mesh:   Mesh object that contains region spacing and cross sections
                 0 = zero flux BC
                 1 = zero incoming flux BC
                 2 = reflective BC
@@ -16,8 +88,7 @@
         index:  Indexing function that calculates the indecies into matricies
                 and vectors.
 */
-void formMatrixProblem(Mesh mesh, BoundaryConditions BC, 
-        Sparse &A, Sparse &F, Indexer index)
+void formMatrixProblem(Mesh mesh, Sparse &A, Sparse &F, Indexer index)
 {
    
     // extract dimensions 
@@ -30,10 +101,10 @@ void formMatrixProblem(Mesh mesh, BoundaryConditions BC,
     {
         /* load material and mesh spacing of current and 
            neighboring cells */
-        double delta1 = mesh.delta[n];
-        double delta2 = mesh.delta[n+1];
-        XSdata* mat1 = mesh.material[n];
-        XSdata* mat2 = mesh.material[n+1];
+        double delta1 = mesh._delta[n];
+        double delta2 = mesh._delta[n+1];
+        XSdata* mat1 = mesh._material[n];
+        XSdata* mat2 = mesh._material[n+1];
 
         // calculate Dhat for all groups
         std::vector<double> temp;
@@ -54,8 +125,8 @@ void formMatrixProblem(Mesh mesh, BoundaryConditions BC,
     double value;
     for(int n=0; n<N; n++)
     {
-        double delta = mesh.delta[n];
-        XSdata* mat = mesh.material[n];
+        double delta = mesh._delta[n];
+        XSdata* mat = mesh._material[n];
         for(int g=0; g<G; g++)
         {
             // calculate removal term
@@ -81,14 +152,14 @@ void formMatrixProblem(Mesh mesh, BoundaryConditions BC,
                     Dhat_neighbor = Dhat[n][g];
                     if(Dhat_neighbor != 0)
                         A.setVal(index(n,g), index(n+1,g), -Dhat_neighbor);
-                    bc = BC.left;
+                    bc = mesh._BC.left;
                 }
                 else
                 {
                     Dhat_neighbor = Dhat[n-1][g];
                     if(Dhat_neighbor != 0)
                         A.setVal(index(n,g), index(n-1,g), -Dhat_neighbor);
-                    bc = BC.right;
+                    bc = mesh._BC.right;
                 }
 
                 // add diagonal term
@@ -152,54 +223,6 @@ void formMatrixProblem(Mesh mesh, BoundaryConditions BC,
 }
 
 /*
-Fills geometry with materials and forms a mesh
-Arguments:
-    materials:  list of materials to fill each region
-    widths:     list of region widths
-    npts:       number of descritization points in each region
-
-Output:
-    mesh:   a Mesh object that contains XS information and cell widths  
-*/
-    
-Mesh fillGeometry(std::vector<XSdata*> materials, std::vector<double> widths, 
-        std::vector<int> npts)
-{    
-    // extract the total number of regions
-    int num_regions = materials.size();
-
-    // calculate total mesh points
-    int N = 0;
-    for(int n=0; n<npts.size(); n++)
-        N += npts[n];
-
-    // initialize mesh
-    Mesh mesh;
-    mesh.delta = std::vector<double> (N,0);
-    
-    // determine the number of groups
-    int G = materials[0]->D.size();
-
-    // form mesh and fill with materials
-    int c = 0;
-    for(int i=0; i<num_regions; i++)
-    {
-        for(int j=0; j<npts[i]; j++)
-        {
-            // fill XS data
-            mesh.material.push_back( materials[i] );
-            
-            // calculate mesh
-            mesh.delta[c] = (double) widths[i] / (double) npts[i];
-
-            // increment counter
-            c += 1;
-        }
-    }
-    return mesh;
-}
-
-/*
     Solves the eigenvalue problem Ax = 1/k Fx <-> inv(A)Fx = kx
     Arguments:
         - A:            loss matrix
@@ -213,7 +236,7 @@ Mesh fillGeometry(std::vector<XSdata*> materials, std::vector<double> widths,
                         options: 0 = Point Jacobi, 1 = Gauss-Seidel
 
     Output:
-        An dictionary containing solution information with keys:
+        An eigenSolution struct containing the following information:
             - 'flux': solution vector of the eigenvalue problem
             - 'keff': eigenvalue of the solution (largest eigenvalue)
             - 'power': the fission production corresponding to the solution
@@ -250,10 +273,13 @@ eigenSolution eigen_solver(
         
         // solve inner iterations
         if(inner_solver == 0)
-            phi_new = pointJacobi(A, S, inner_tol, maxiters, sum_inner_iters);
+            phi_new = A.pointJacobi(S, phi, inner_tol, maxiters, sum_inner_iters);
         
         else if(inner_solver == 1)
-            phi_new = gaussSeidel(A, S, inner_tol, maxiters, sum_inner_iters);
+            phi_new = A.gaussSeidel(S, phi, inner_tol, maxiters, sum_inner_iters);
+        
+        else if(inner_solver == 2)
+            phi_new = A.optimalSOR(S, phi, inner_tol, maxiters, sum_inner_iters);
         
         else
             std::cout << "Error: inner solver not recognized" << endl;
@@ -264,6 +290,14 @@ eigenSolution eigen_solver(
         // create new fission sources
         std::vector<double> temp = F * phi_new;
         
+        // calculate new total fission source
+        double sum_fission = 0;
+        for(int n=0; n<temp.size(); n++)
+            sum_fission += temp[n];
+        
+        // compute keff
+        //k = sum_fission / (N*G);
+
         // calculate residual
         double res = 0;
         for(int n=0; n < temp.size(); n++)
@@ -271,21 +305,14 @@ eigenSolution eigen_solver(
             if(temp[n] != 0)
                 res += pow(k*S[n] / temp[n] - 1, 2);
         }
-        res /= N;
+        res /= (N);
         res = sqrt(res);
-
-        // calculate new total fission source
-        double sum_fission = 0;
-        for(int n=0; n<temp.size(); n++)
-            sum_fission += temp[n];
 
         // normalize phi
         for(int n=0; n<phi.size(); n++)
             phi[n] = phi_new[n] * N * G / sum_fission;
 
-
         // check for convergence
-        std::cout << "res = " << res << ", iter# = " << sum_inner_iters/(i+1) << endl;
         if(res < tol)
         {
             outer_iters = i+1;
@@ -301,7 +328,7 @@ eigenSolution eigen_solver(
     }
 
     // structure eigenvalue result
-    eigenSolution result;
+    eigenSolution result = eigenSolution();
     result.flux = phi;
     result.keff = k;
     result.outer_iters = outer_iters;
@@ -310,170 +337,75 @@ eigenSolution eigen_solver(
     
     std::cout << "Source converged in " << outer_iters << 
         " outer iterations" << endl;
+    std::cout << "Average inner iterations = " << result.inner_iters << endl;
     return result;
 }
 
 /*
-    Gauss-Seidel method to solve Ax = b
-    Arguments:
-        - A:        matrix A
-        - b:        vector b
-        - tol:      convergence tolerance
-        - maxiters: maximum iterations
-        - sumiters: number of iterations needed to converge problem
-    Returns:
-        The solution vector x
-    */
-std::vector<double> gaussSeidel(
-        Sparse A, 
-        std::vector<double> b, 
-        double tol, 
-        int maxiters, 
-        int &sum_iters)
+   Eigenvalue solutoin constructor
+   */
+eigenSolution::eigenSolution()
 {
-    // initialize solution
-    int N = b.size();
-    std::vector<double> x (N, 1);
-    int iters = 0;
+    keff = 0;
+    outer_iters = 0;
+    inner_iters = 0;
+}
 
-    // cycle through iterations
-    for(int n=0; n<maxiters; n++)
+// destructor
+eigenSolution::~eigenSolution() {};
+
+/*
+   creates 2D arrays of flux and power by group
+   */
+void eigenSolution::indexArrays(Indexer index)
+{
+    if( gFlux.size() > 0 )
     {
-        // create new vector xnew which is a copy of x
-        std::vector<double> xnew (x.size(), 0);
-
-        // iterate through rows of solution vector
-        for(int i=0; i < N; i++)
-        {
-            // initialize to rhs value
-            xnew[i] = b[i];
-
-            // iterate through columns of matrix 
-            for( int j=0; j < N; j++)
-            {
-                // subtract upper traingular
-                if( i < j )
-                    xnew[i] -= A(i,j) * x[j];
-                
-                // subtract lower triangular (updated)
-                else if( i > j )
-                    xnew[i] -= A(i,j) * xnew[j];
-            }
-
-            // divide by diagonal
-            xnew[i] /= A(i,i);
-        }
-
-        // copmpute difference between previous iteration
-        std::vector<double> diff (x.size(), 0);
-        for(int i=0; i < diff.size(); i++)
-            diff[i] = (xnew[i] - x[i]) / x[i];
-        double res = sqrt( dot(diff,diff) / N);
-        
-        // update solution vector x
-        x = xnew;
-
-        // check convergence
-        if(res < tol)
-        {
-            iters = n+1;
-            break;
-        }
-    }
-    
-    // check of maxiters exceeded
-    if( iters == 0 )
-    {
-        std::cout << "Warning: Maximum inner iterations exceeded!" << endl;
-        iters = maxiters;
+        std::cout << "Warning: arrays already indexed" << endl;
+        return;
     }
 
-    // add to iteration count
-    sum_iters += iters;
-    
-    return x;
+    // fill arrays
+    for(int g=0; g<index._G; g++)
+    {
+        std::vector<double> tempFlux;
+        std::vector<double> tempPower;
+        for(int n=0; n<index._N; n++)
+        {
+            tempFlux.push_back( flux[index(n,g)] );
+            tempPower.push_back( power[index(n,g)] );
+        }
+        gFlux.push_back(tempFlux);
+        gPower.push_back(tempPower);
+    }
+    return;
 }
 
 /*
-    Point Jacobi method to solve Ax = b
-    Arguments:
-        - A:        matrix A
-        - b:        vector b
-        - tol:      convergence tolerance
-        - maxiters: maximum iterations
-        - sumiters: number of iterations needed to converge problem
-    Returns:
-        The solution vector x
-    */
-std::vector<double> pointJacobi(
-        Sparse A, 
-        std::vector<double> b, 
-        double tol, 
-        int maxiters, 
-        int &sum_iters)
+   Eigenvalue solution destructor
+   */       
+std::vector<double> eigenSolution::getFlux(int g)
 {
-    // initialize solution
-    int N = b.size();
-    std::vector<double> x (N, 1);
-    int iters = 0;
-
-    // cycle through iterations
-    for(int n=0; n<maxiters; n++)
+    if(gFlux.size() == 0)
     {
-        // create new vector xnew which is a copy of x
-        std::vector<double> xnew (x.size(), 0);
-
-        // iterate through rows of solution vector
-        for(int i=0; i < N; i++)
-        {
-            // initialize to rhs value
-            xnew[i] = b[i];
-
-            // iterate through columns of matrix 
-            for( int j=0; j < N; j++)
-            {
-                // subtract upper traingular
-                if( i < j )
-                    xnew[i] -= A(i,j) * x[j];
-                
-                // subtract lower triangular
-                else if( i > j )
-                    xnew[i] -= A(i,j) * x[j];
-            }
-
-            // divide by diagonal
-            xnew[i] /= A(i,i);
-        }
-
-        // copmpute difference between previous iteration
-        std::vector<double> diff (x.size(), 0);
-        for(int i=0; i < diff.size(); i++)
-            diff[i] = (xnew[i] - x[i]) / x[i];
-        double res = sqrt( dot(diff,diff) / N);
-        
-        // update solution vector x
-        x = xnew;
-
-        // check convergence
-        if(res < tol)
-        {
-            iters = n+1;
-            break;
-        }
+        std::cout << "Error: arrays not indexed!" << endl;
+        return flux;
     }
-    
-    // check of maxiters exceeded
-    if( iters == 0 )
-    {
-        std::cout << "Warning: Maximum inner iterations exceeded!" << endl;
-        iters = maxiters;
-    }
-
-    // add to iteration count
-    sum_iters += iters;
-    
-    return x;
+    else
+        return gFlux[g-1];
 }
 
-
+/*
+   Function to return a vector of the fission reaction rate for group g
+   */
+std::vector<double> eigenSolution::getPower(int g)
+{
+    if(gPower.size() == 0)
+    {
+        std::cout << "Error: arrays not indexed!" << endl;
+        return flux;
+    }
+    else
+        return gPower[g-1];
+} 
 

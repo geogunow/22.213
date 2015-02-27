@@ -21,6 +21,8 @@ source = \
 main.cpp \
 diffSolver.cpp \
 Sparse.cpp \
+Mesh.cpp \
+XSdata.cpp \
 utils.cpp
 
 obj = $(source:.cpp=.o)
@@ -40,10 +42,10 @@ endif
 #===============================================================================
 
 $(program): $(obj)
-	$(CC) $(obj) -o $@
+	$(CC) $(obj) -o $@ -pg
 
 %.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ -Wall -pg
 
 clean:
 	rm -rf $(program) $(obj)

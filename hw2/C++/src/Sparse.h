@@ -1,3 +1,7 @@
+#ifndef __SPARSE__
+#define __SPARSE__
+
+#include<cmath>
 #include<iostream>
 #include<cstdio>
 #include<vector>
@@ -29,4 +33,18 @@ class Sparse {
         void display(void);
         Sparse transpose(void);
         int size(void);
+        std::vector<double> pointJacobi(std::vector<double> b, 
+                std::vector<double> x0, double tol, int maxiters, 
+                int &sumiters);
+
+        std::vector<double> gaussSeidel(std::vector<double> b, 
+                std::vector<double> x0, double tol, int maxiters, 
+                int &sumiters);
+
+        std::vector<double> optimalSOR(std::vector<double> b, 
+                std::vector<double> x0, double tol, int maxiters, 
+                int &sumiters);
+
+        double dot(std::vector<double> &x1, std::vector<double> &x2);
 };
+#endif

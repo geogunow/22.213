@@ -105,6 +105,8 @@ for i, refine in enumerate(refinements):
     if refine == refinements[-1]:
         plot_fluxes(delta, result['flux'], sum(npts))
 
+    print "Keff = ", keff[i]
+
 # calculate errors relative to finest mesh
 keff_errors = calculate_scalar_errors(keff[:-1], keff[-1])*10**5
 nodal_power_errors = calculate_l2_errors(nodal_power[:-1], nodal_power[-1], N)
