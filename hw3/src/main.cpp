@@ -87,11 +87,21 @@ int main(){
     for(int i=0; i<5; i++)
         timeSteps.push_back(ts[i]);
 
-    int I = 3;
+    int I = 8;
     double chi_d[] = {0,1};
-    double v[] = {1000, 0.001};
-    double beta[] = {0.0030, 0.0030, 0.0005};
-    double lambda[] = {2.4, 1.2, 0.7};
+    double v[] = {2200 * 100 * sqrt(pow(10,3) / 0.0253), 
+        2200 * 100 * sqrt( pow(10,-1) / 0.0253)};
+
+    /*   
+    double beta[] = {0.000218, 0.001023, 0.000605, 0.00131, 0.00220, 0.00060, 
+        0.000540, 0.000152};
+    double halflife[] = {55.6, 24.5, 16.3, 5.21, 2.37, 1.04, 0.424, 0.195};
+    double lambda[I];
+    for(int i=0; i < I; i++)
+        lambda[i] = log(2) / halflife[i];
+    */
+    double beta[I];
+    double lambda[I];
 
     
     RKdata rkParams;

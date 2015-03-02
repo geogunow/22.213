@@ -9,13 +9,15 @@ void solveTransient(
 {
     // set transient variables
     double tol = pow(10,-6);
-    int maxiters = 1000;
+    int maxiters = pow(10,5);
     double outer_tol = pow(10,-6);
     double inner_tol = pow(10,-6);
     int inner_solver = 2;
     int sum_inner_iters = 0;
 
     //TODO: error checking
+    std::vector<double> npower;
+
 
     // get first mesh to solve steady state
     Mesh mesh = meshVector[0];
@@ -70,8 +72,9 @@ void solveTransient(
     {
         for(int i=0; i < rkParams.I; i++)
         {
-            precursors[0][n][i] = rkParams.beta_i[i] * fissionProd[n]
-                / ( rkParams.lambda_i[i] * kcrit );
+            if( rkParams.lambda_i[i] != 0 )
+                precursors[0][n][i] = rkParams.beta_i[i] * fissionProd[n]
+                    / ( rkParams.lambda_i[i] * kcrit );
         }
     }
 
@@ -141,7 +144,8 @@ void solveTransient(
             double time_abs = 1 / (rkParams.v[g] * dt);
             for(int n=0; n < mesh._N; n++)
             {
-                double val = time_abs + T( index(n,g), index(n,g) );
+                double val = mesh._delta[n] * time_abs + 
+                    T( index(n,g), index(n,g) );
                 T.setVal( index(n,g), index(n,g), val );
             }
         }
@@ -156,6 +160,9 @@ void solveTransient(
         // solve flux
         flux[t+1] = T.optimalSOR(S, flux[t], tol, maxiters, sum_inner_iters);
 
+        // tally total power (assuming nu is constant)
+        double total_power = 0;
+
         // calculate new neutron precursors
         for(int n=0; n < mesh._N; n++)
         {
@@ -167,6 +174,8 @@ void solveTransient(
             for(int g=0; g < mesh._G; g++)
                 fission += mat->nuSigf[g] * flux[t+1][index(n,g)];
 
+            total_power += fission;
+
             // calculate precursors for each group in I
             for(int i=0; i < rkParams.I; i++)
             {
@@ -175,6 +184,10 @@ void solveTransient(
                     (1 + rkParams.lambda_i[i] * dt);
             }
         }
+
+        // add total power to power vector
+        npower.push_back(total_power);
+        std::cout << "Power = " << total_power << endl;
     }
     return;
 }
