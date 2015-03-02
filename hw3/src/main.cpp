@@ -100,8 +100,11 @@ int main(){
     for(int i=0; i < I; i++)
         lambda[i] = log(2) / halflife[i];
     */
-    double beta[I];
-    double lambda[I];
+    double beta[] = {0,0,0,0,0,0,0,0};
+    double lambda[] {0,0,0,0,0,0,0,0};
+
+
+    std::cout << beta[0] << beta[7] << endl;
 
     
     RKdata rkParams;
