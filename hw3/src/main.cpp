@@ -101,7 +101,7 @@ int main(){
         lambda[i] = log(2) / halflife[i];
     */
     double beta[] = {0,0,0,0,0,0,0,0};
-    double lambda[] {0,0,0,0,0,0,0,0};
+    double lambda[] = {0,0,0,0,0,0,0,0};
 
 
     std::cout << beta[0] << beta[7] << endl;
