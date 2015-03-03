@@ -10,7 +10,7 @@
 
 #define endl "\n"
 
-class Sparse {
+class Sparse{
 
     private:
         

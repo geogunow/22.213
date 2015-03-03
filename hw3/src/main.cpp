@@ -77,44 +77,38 @@ int main(){
     std::vector<double> timeVector;
     std::vector<double> timeSteps;
 
-    double tt[] = {0, 1, 5};
-    for(int i=0; i<3; i++)
-    {
-        timeVector.push_back(tt[i]);
-        meshVector.push_back(mesh);
-    }
+    double timeArray[] = {0, 1, 5};
+    Mesh* meshArray[] = {&mesh, &mesh, &mesh};
+    int n_interp = 3;
+
     double ts[] = {0,1,2,3,4};
-    for(int i=0; i<5; i++)
-        timeSteps.push_back(ts[i]);
+    int nsteps = 5;
 
     int I = 8;
-    double chi_d[] = {0,1};
+    double chi_d[] = {1,0};
     double v[] = {2200 * 100 * sqrt(pow(10,3) / 0.0253), 
         2200 * 100 * sqrt( pow(10,-1) / 0.0253)};
 
-    /*   
     double beta[] = {0.000218, 0.001023, 0.000605, 0.00131, 0.00220, 0.00060, 
         0.000540, 0.000152};
     double halflife[] = {55.6, 24.5, 16.3, 5.21, 2.37, 1.04, 0.424, 0.195};
     double lambda[I];
     for(int i=0; i < I; i++)
         lambda[i] = log(2) / halflife[i];
-    */
-    double beta[] = {0,0,0,0,0,0,0,0};
-    double lambda[] = {0,0,0,0,0,0,0,0};
-
-
-    std::cout << beta[0] << beta[7] << endl;
-
     
+
     RKdata rkParams;
     rkParams.setChiD(chi_d, G);
     rkParams.setV(v, G);
     rkParams.setBetas(beta, I);
     rkParams.setLambdas(lambda, I);
+    Transient trans = Transient();
+    trans.setInterpTimes(timeArray, n_interp);
+    trans.setCalcTimes(ts, nsteps);
+    trans.setMeshVector(meshArray, n_interp);
     
     
-    solveTransient( meshVector, timeVector, timeSteps, rkParams);
+    rkSolution rkResult = solveTransient(trans, rkParams);
     std::cout << "Success!" << endl;
     return 0;
 }

@@ -1,12 +1,13 @@
 #include"diffSolver.h"
 
 //TODO: write interface (may need to change to arrays)
-void solveTransient(
-        std::vector<Mesh> meshVector,
-        std::vector<double> timeVector,
-        std::vector<double> timeSteps,
-        RKdata rkParams)
+rkSolution solveTransient(Transient trans, RKdata rkParams)
 {
+    // get vectors
+    std::vector<Mesh> meshVector = trans.meshVector;
+    std::vector<double> timeVector = trans.timeVector;
+    std::vector<double> timeSteps = trans.timeSteps;
+
     // set transient variables
     double tol = pow(10,-6);
     int maxiters = pow(10,5);
@@ -16,8 +17,9 @@ void solveTransient(
     int sum_inner_iters = 0;
 
     //TODO: error checking
-    std::vector<double> npower;
-
+    
+    // create transient reactor kinetics soution object
+    rkSolution rkResult = rkSolution();
 
     // get first mesh to solve steady state
     Mesh mesh = meshVector[0];
@@ -36,11 +38,11 @@ void solveTransient(
     Sparse A = SigA + SigS + Dhat;
     
     // solve eigenvalue problem
-    eigenSolution result = eigen_solver(A, F, N, mesh._G, outer_tol, inner_tol, 
+    eigenSolution ssResult = eigen_solver(A, F, N, mesh._G, outer_tol, inner_tol, 
             maxiters, inner_solver);
     
     // extract critical k for transient solution
-    double kcrit = result.keff;
+    double kcrit = ssResult.keff;
 
     // intialize precursor and flux structure
     std::vector<std::vector<std::vector<double> > > precursors;
@@ -59,21 +61,21 @@ void solveTransient(
     }
 
     // initialize first time step of flux
-    flux[0] = result.flux;
+    flux[0] = ssResult.flux;
 
-    // calculate fission production in each cell
-    std::vector<double> fissionProd(mesh._N, 0);
-    for(int n=0; n < mesh._N; n++)
-        for(int g=0; g < mesh._G; g++)
-            fissionProd[n] += result.power[index(n,g)];
-    
-    // calculate intial precursor population
+    // calculate intial precursor population for each cell
     for(int n=0; n < mesh._N; n++)
     {
+        // calculate fission production in the cell
+        double fp = 0;
+        for(int g=0; g < mesh._G; g++)
+            fp += ssResult.flux[index(n,g)] * mesh._material[n]->nuSigf[g]; 
+
+        // calculate initial precursor population
         for(int i=0; i < rkParams.I; i++)
         {
             if( rkParams.lambda_i[i] != 0 )
-                precursors[0][n][i] = rkParams.beta_i[i] * fissionProd[n]
+                precursors[0][n][i] = rkParams.beta_i[i] * fp
                     / ( rkParams.lambda_i[i] * kcrit );
         }
     }
@@ -116,21 +118,29 @@ void solveTransient(
                         modified[2] = true;
 
                 // check fission
-                if( mat1->nuSigf[g] != mat2->nuSigf[g] or 
+                if( mat1->nuSigf[g] != mat2->nuSigf[g] || 
                         mat1->chi[g] != mat2->chi[g])
                     modified[3] = true;
             }
         }
 
         // form new matrices as needed
-        if(modified[0])
+        if(modified[0]){
+            std::cout << "MOD DHAT" << endl;
             Dhat = formDhatMatrix(newMesh, index);
-        if(modified[1])
+        }
+        if(modified[1]){
+            std::cout << "MOD SIGA" << endl;
             SigA = formSigAMatrix(newMesh, index);
-        if(modified[2])
+        }
+        if(modified[2]){
+            std::cout << "MOD SIGS" << endl;
             SigS = formSigSMatrix(newMesh, index);
-        if(modified[3])
+        }
+        if(modified[3]){
+            std::cout << "MOD F" << endl;
             F = formFMatrix(newMesh, index);
+        }
 
         // create tansient fission matrix
         Sparse Fhat = formFhatMatrix(newMesh, rkParams, dt, kcrit, index);
@@ -150,12 +160,12 @@ void solveTransient(
             }
         }
         
-        // copy newMesh to mesh
-        mesh = newMesh;
-        
         // create S vector
         std::vector<double> S = formSVector(mesh, rkParams, flux[t], 
                 precursors[t], dt, kcrit, index);
+        
+        // copy newMesh to mesh
+        mesh = newMesh;
         
         // solve flux
         flux[t+1] = T.optimalSOR(S, flux[t], tol, maxiters, sum_inner_iters);
@@ -186,10 +196,13 @@ void solveTransient(
         }
 
         // add total power to power vector
-        npower.push_back(total_power);
+        rkResult.power.push_back(total_power);
+        rkResult.powerProfile.push_back(F*flux[t]);
         std::cout << "Power = " << total_power << endl;
     }
-    return;
+    rkResult.flux = flux;
+    rkResult.indexArrays( index, timeVector.size() );
+    return rkResult;
 }
 
 
@@ -400,7 +413,7 @@ Sparse formDhatMatrix(Mesh mesh, Indexer index)
             double diag_val;
             
             // calculate loss matrix terms
-            if(n == 0 or n == N-1)
+            if(n == 0 || n == N-1)
             {
                 // treat boundary conditions
                 double Dhat_neighbor;
@@ -549,6 +562,9 @@ std::vector<double> formSVector(Mesh mesh, RKdata rkParams,
     // set vector terms
     for(int n=0; n<N; n++)
     {
+        // get mesh spacing
+        double dx = mesh._delta[n];
+
         // calculate precursor contribution in cell
         double precursor = 0;
         for(int i=0; i < rkParams.I; i++)
@@ -559,8 +575,8 @@ std::vector<double> formSVector(Mesh mesh, RKdata rkParams,
 
         for(int g=0; g<G; g++)
         {
-            S[index(n,g)] = phi[index(n,g)] / (rkParams.v[g] * dt)
-                    + rkParams.chi_d[g] * precursor;
+            S[index(n,g)] = phi[index(n,g)] * dx / (rkParams.v[g] * dt)
+                    + rkParams.chi_d[g] * precursor * dx;
         }
     }
     return S;
@@ -630,7 +646,7 @@ void formSteadyStateMatrixProblem(Mesh mesh, Sparse &A, Sparse &F,
             }
 
             // calculate loss matrix terms
-            if(n == 0 or n == N-1)
+            if(n == 0 || n == N-1)
             {
 
                 // treat boundary conditions
@@ -829,71 +845,45 @@ eigenSolution eigen_solver(
     return result;
 }
 
-/*
-   Eigenvalue solutoin constructor
-   */
-eigenSolution::eigenSolution()
+// sets the mesh and time steps for the transient
+Transient::Transient()
 {
-    keff = 0;
-    outer_iters = 0;
-    inner_iters = 0;
+    // set length
+    n_pts = 0;
+    set = false;
 }
 
-// destructor
-eigenSolution::~eigenSolution() {};
+// destructor for transient
+Transient::~Transient() { }
 
-/*
-   creates 2D arrays of flux and power by group
-   */
-void eigenSolution::indexArrays(Indexer index)
+// set interpolation times
+void Transient::setInterpTimes(double * timeArray, int n_steps)
 {
-    if( gFlux.size() > 0 )
-    {
-        std::cout << "Warning: arrays already indexed" << endl;
-        return;
-    }
-
-    // fill arrays
-    for(int g=0; g<index._G; g++)
-    {
-        std::vector<double> tempFlux;
-        std::vector<double> tempPower;
-        for(int n=0; n<index._N; n++)
-        {
-            tempFlux.push_back( flux[index(n,g)] );
-            tempPower.push_back( power[index(n,g)] );
-        }
-        gFlux.push_back(tempFlux);
-        gPower.push_back(tempPower);
-    }
+    n_pts = n_steps;
+    for(int m=0; m < n_steps; m++)
+        timeVector.push_back(timeArray[m]);
+    return;
+}
+// set calculation times
+void Transient::setCalcTimes(double * timeArray, int n_steps)
+{
+    for(int m=0; m < n_steps; m++)
+        timeSteps.push_back(timeArray[m]);
     return;
 }
 
-/*
-   Eigenvalue solution destructor
-   */       
-std::vector<double> eigenSolution::getFlux(int g)
+// set mesh
+void Transient::setMeshVector(Mesh ** meshArray, int n_interp)
 {
-    if(gFlux.size() == 0)
+    if(n_interp != n_pts)
     {
-        std::cout << "Error: arrays not indexed!" << endl;
-        return flux;
+        std::cout << "Error: number of mesh does not equal number of "
+            << "interpolation times!" << endl;
+        return;
     }
-    else
-        return gFlux[g-1];
+    for(int m=0; m < n_interp; m++)
+        meshVector.push_back(*meshArray[m]);
+    
+    set = true;
+    return;
 }
-
-/*
-   Function to return a vector of the fission reaction rate for group g
-   */
-std::vector<double> eigenSolution::getPower(int g)
-{
-    if(gPower.size() == 0)
-    {
-        std::cout << "Error: arrays not indexed!" << endl;
-        return flux;
-    }
-    else
-        return gPower[g-1];
-} 
-

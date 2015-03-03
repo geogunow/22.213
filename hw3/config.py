@@ -83,7 +83,8 @@ class configuration:
                     'src/Sparse.cpp',
                     'src/XSdata.cpp',
                     'src/Mesh.cpp',
-                    'src/utils.cpp']
+                    'src/utils.cpp',
+                    'src/Solutions.cpp']
 
 
   #############################################################################

@@ -3,35 +3,30 @@
 #include"utils.h"
 #include"Sparse.h"
 #include"Mesh.h"
+#include"Solutions.h"
 #include<cmath>
 
 
-class eigenSolution{
+class Transient{
     public:
-        std::vector<double> flux;
-        std::vector< std::vector<double> > gFlux;
-        std::vector<double> power;
-        std::vector< std::vector<double> > gPower;
-        double keff;
-        int outer_iters;
-        int inner_iters;
-        
-        eigenSolution();
-        virtual ~eigenSolution();
-        void indexArrays(Indexer index);
-        std::vector<double> getFlux(int g);
-        std::vector<double> getPower(int g);
+        int n_pts;
+        bool set;
+        std::vector<Mesh> meshVector;
+        std::vector<double> timeVector;
+        std::vector<double> timeSteps;
+
+        Transient();
+        virtual ~Transient();
+        void setInterpTimes(double * timeArray, int n_steps);
+        void setCalcTimes(double * timeArray, int n_steps);
+        void setMeshVector(Mesh ** meshArray, int n_interp);
 };
 
 
 eigenSolution solveCritical(Mesh mesh, double outer_tol, double inner_tol,
         int maxiters, int inner_solver);
 
-void solveTransient(
-        std::vector<Mesh> meshVector,
-        std::vector<double> timeVector,
-        std::vector<double> timeSteps,
-        RKdata rkParams);
+rkSolution solveTransient(Transient trans, RKdata rkParams);
 
 Sparse formSigAMatrix(Mesh mesh, Indexer index);
 Sparse formSigSMatrix(Mesh mesh, Indexer index);

@@ -4,8 +4,8 @@
 
 COMPILER    = gnu
 MPI         = no
-OPENMP      = yes
-OPTIMIZE    = yes
+OPENMP      = no
+OPTIMIZE    = no
 DEBUG       = no
 PROFILE     = no
 PAPI        = no
@@ -23,7 +23,8 @@ diffSolver.cpp \
 Sparse.cpp \
 Mesh.cpp \
 XSdata.cpp \
-utils.cpp
+utils.cpp \
+Solutions.cpp
 
 obj = $(source:.cpp=.o)
 

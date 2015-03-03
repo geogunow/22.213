@@ -171,7 +171,7 @@ RKdata::~RKdata() { }
 /* 
    functions for setting reactor kinetics parameters
    */
-void RKdata::setV(double * values, int len)
+void RKdata::setV(double * vals, int len)
 {
     // error checking
     if( G == 0 )
@@ -196,11 +196,11 @@ void RKdata::setV(double * values, int len)
 
     // set velocities
     for(int g=0; g < G; g++)
-        v.push_back( values[g] );
+        v.push_back( vals[g] );
 
     return;
 }
-void RKdata::setChiD(double * values, int len)
+void RKdata::setChiD(double * vals, int len)
 {
     // error checking
     if( G == 0 )
@@ -225,11 +225,11 @@ void RKdata::setChiD(double * values, int len)
 
     // set delayed fission spectrum
     for(int g=0; g < G; g++)
-        chi_d.push_back( values[g] );
+        chi_d.push_back( vals[g] );
 
     return;
 }
-void RKdata::setBetas(double * values, int len)
+void RKdata::setBetas(double * vals, int len)
 {
     // error checking
     if( I == 0 )
@@ -255,13 +255,13 @@ void RKdata::setBetas(double * values, int len)
     // set delayed neutron fractions
     for(int i=0; i < I; i++)
     {
-        beta += values[i];
-        beta_i.push_back( values[i] );
+        beta += vals[i];
+        beta_i.push_back( vals[i] );
     }
 
     return;
 }
-void RKdata::setLambdas(double * values, int len)
+void RKdata::setLambdas(double * vals, int len)
 {
     // error checking
     if( I == 0 )
@@ -286,13 +286,10 @@ void RKdata::setLambdas(double * values, int len)
 
     // set delayed neutron decay constants
     for(int i=0; i < I; i++)
-        lambda_i.push_back( values[i] );
+        lambda_i.push_back( vals[i] );
 
     return;
 }
-
-
-
 
 
 

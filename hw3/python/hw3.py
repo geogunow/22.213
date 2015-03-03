@@ -68,19 +68,17 @@ maxiters = 10000
 inner_solver = 1 # optimal SOR
 
 # kinetic parameters
-beta_i = [0.000218, 0.001023, 0.000605, 0.00131, 0.00220, 0.00060, 0.000540,
+betas = [0.000218, 0.001023, 0.000605, 0.00131, 0.00220, 0.00060, 0.000540,
         0.000152]
 halflife = [55.6, 24.5, 16.3, 5.21, 2.37, 1.04, 0.424, 0.195]
-lambda_i = log(2) / np.array(halflife)
-velocity1 = 2200 * 100 * sqrt(10**3 / 0.0253)
-velocity2 = 2200 * 100 * sqrt(0.1 / 0.0253)
-beta = sum(beta_i)
+lambdas = log(2) / np.array(halflife)
+energy = np.array([10**3, 0.1])
+v = 2200 * 100 * np.sqrt(energy / 0.0253)
+beta = sum(betas)
+chi_d = [1,0]
 print 'beta-eff = ', beta
 
 
-'''
-Parts D and E
-'''
 # form mesh
 mesh = rk.Mesh()
 mesh.setMesh(nodes)
@@ -89,6 +87,20 @@ mesh.setMaterials(mats)
 mesh.setBoundaryConditions(2,2)
 
 # solve eigenvalue problem
-solution = rk.solveDiffusion(mesh, outer_tol, inner_tol, maxiters,
+solution = rk.solveCritical(mesh, outer_tol, inner_tol, maxiters,
         inner_solver)
+print "keff = ", solution.keff
 
+# set kinetic parameters
+rkParams = rk.RKdata()
+rkParams.setChiD(chi_d)
+rkParams.setV(v)
+rkParams.setBetas(betas)
+rkParams.setLambdas(lambdas)
+
+trans = rk.Transient()
+#trans.setTimes([0,1,2], [0, 1.5, 2])
+trans.setMeshVector([mesh, mesh, mesh])
+
+print "success"
+# solve reactor kinetics solution

@@ -34,13 +34,13 @@ class RKdata{
         std::vector<double> lambda_i;
         double beta;
         int I;
-
+       
         RKdata();
         virtual ~RKdata();
-        void setChiD(double * values, int len);
-        void setV(double * values, int len);
-        void setBetas(double * values, int len);
-        void setLambdas(double * values, int len);
+        void setChiD(double * vals, int len);
+        void setV(double * vals, int len);
+        void setBetas(double * vals, int len);
+        void setLambdas(double * vals, int len);
 };
 
 

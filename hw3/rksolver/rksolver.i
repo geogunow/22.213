@@ -8,6 +8,7 @@
   #include "../src/Mesh.h"
   #include "../src/XSdata.h"
   #include "../src/Sparse.h"
+  #include "../src/Solutions.h"
   
   #define printf PySys_WriteStdout
 
@@ -53,7 +54,28 @@ namespace std {
 
 
 %apply (int* IN_ARRAY1, int DIM1) {(int * npts, int n_npts)};
-%apply (double* IN_ARRAY1, int DIM1) {(double * widths, int n_widths), (double * xs, int ng)};
+%apply (double* IN_ARRAY1, int DIM1) {(double * widths, int n_widths), 
+        (double * xs, int ng), (double * vals, int len), 
+        (double * timeArray, int n_steps};
+
+/* Typemap for setting transient object:
+ * Transient.setTimes (double * timeArray, int n_interp,
+ *          double * calcTimes, int n_steps)
+ * Transient.setMeshVector ( Mesh * meshArray, int n_interp)
+ * method - allows user to declare a transient from python
+ */
+%typemap(in) (Mesh ** meshArray, int n_interp) {
+    $2 = PySequence_Length($input); // num mesh
+    $1 = (Mesh**) malloc(($2) * sizeof(Mesh)); // mesh array
+    
+    /* loop through mesh */
+    for (int i = 0; i < $2; i++) {
+        PyObject* o = PyList_GetItem($input, i);
+        void *p1 = 0;
+        SWIG_ConvertPtr(o, &p1, SWIGTYPE_p_Mesh, 0 | 0);
+        $1[i] = (Mesh *) p1;
+    }
+}
 
 /* Typemap for Mesh::setMaterials (XSdata** materials, int n_materials)
  * method - allows user to pass in Python lists of XSdata for each node
@@ -141,5 +163,6 @@ namespace std {
 %include ../src/XSdata.h
 %include ../src/utils.h
 %include ../src/Sparse.h
+%include ../src/Solutions.h
 
 #define printf PySys_WriteStdout

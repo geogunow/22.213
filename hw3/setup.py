@@ -66,7 +66,7 @@ class custom_install(install):
     # By default, do not build openmoc.gnu.single, openmoc.intel.double, etc
     # extension modules
     self.with_gcc = False
-    self.with_ccache = True
+    self.with_ccache = False
     
   def finalize_options(self):
     """Extract options from the flags invoked by the user at compile time.
