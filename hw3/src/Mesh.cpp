@@ -180,6 +180,7 @@ void Mesh::interpolate(std::vector<double> timeVector,
     // mat1 and the second key is mat2
     std::unordered_map<XSdata*, std::unordered_map<XSdata*, XSdata*> > mat_list;
 
+
     // fill materials
     for(int i=0; i<_N; i++)
     {
@@ -271,3 +272,23 @@ std::vector<double> Mesh::getX()
     }
     return x;
 }
+
+// function to copy mesh to a new mesh
+Mesh Mesh::copy()
+{
+    // allocatre new mesh
+    Mesh mesh = Mesh();
+
+    // copy mesh
+    mesh._nodes = _nodes;
+    mesh._N = _N;
+    mesh._G = _G;
+    mesh._BC = _BC;
+    mesh._delta = _delta;
+    mesh._mesh_pts = _mesh_pts;
+    mesh._material = _material;
+
+    return mesh;
+}
+
+

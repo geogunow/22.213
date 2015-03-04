@@ -28,6 +28,7 @@ class Mesh{
         void interpolate(std::vector<double> timeVector, 
                 std::vector<Mesh> meshVector, double time);
         std::vector<double> getX();
+        Mesh copy();
 };
 
 #endif

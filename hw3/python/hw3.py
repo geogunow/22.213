@@ -4,6 +4,11 @@ import matplotlib.pyplot as plt
 from utils import *
 from math import *
 
+font = {'family' : 'sans-serif',
+        'weight' : 'normal',
+        'size' : 18}
+plt.rc('font', **font)
+
 # number of groups
 G = 2
 
@@ -55,11 +60,13 @@ fuel4.setSigs( [[0, 0.022], [0, 0]])
 fuel4.setNuSigf( [0.006, 0.195] )
 fuel4.setChi( [1.0, 0.0] )
 
-# describe geometry
-mats = [water, fuel1, fuel3, fuel1, water]
-widths = [30.0, 170.0, 20.0, 170.0, 30.0]
-nodes = [3, 17, 2, 17, 3]
-N = sum(nodes)
+# set cross sections for fuel3 (3% enriched + 80)
+fuel5 = rk.XSdata()
+fuel5.setD( [1.3, 0.5] )
+fuel5.setSiga( [0.0098, 0.114*0.2 + 0.118*0.8] )
+fuel5.setSigs( [[0, 0.022], [0, 0]])
+fuel5.setNuSigf( [0.006, 0.195] )
+fuel5.setChi( [1.0, 0.0] )
 
 # eigenvalue solver parameters
 outer_tol = 10**-6
@@ -78,19 +85,6 @@ beta = sum(betas)
 chi_d = [1,0]
 print 'beta-eff = ', beta
 
-
-# form mesh
-mesh = rk.Mesh()
-mesh.setMesh(nodes)
-mesh.setWidths(widths)
-mesh.setMaterials(mats)
-mesh.setBoundaryConditions(2,2)
-
-# solve eigenvalue problem
-solution = rk.solveCritical(mesh, outer_tol, inner_tol, maxiters,
-        inner_solver)
-print "keff = ", solution.keff
-
 # set kinetic parameters
 rkParams = rk.RKdata()
 rkParams.setChiD(chi_d)
@@ -98,9 +92,383 @@ rkParams.setV(v)
 rkParams.setBetas(betas)
 rkParams.setLambdas(lambdas)
 
-trans = rk.Transient()
-#trans.setTimes([0,1,2], [0, 1.5, 2])
-trans.setMeshVector([mesh, mesh, mesh])
+'''
+Problem A
+'''
+# describe geometry
+mats = []
+mats.append([water, fuel1, fuel1, fuel1, water])
+mats.append([water, fuel1, fuel3, fuel1, water])
+widths = [30.0, 170.0, 20.0, 170.0, 30.0]
+nodes = [30, 170, 20, 170, 30]
+N = sum(nodes)
 
-print "success"
-# solve reactor kinetics solution
+# form all mesh
+mesh = []
+for i in range(2):
+    temp = rk.Mesh()
+    temp.setMesh(nodes)
+    temp.setWidths(widths)
+    temp.setMaterials(mats[i])
+    temp.setBoundaryConditions(2,2)
+    mesh.append(temp)
+
+# set transient
+trans = rk.Transient()
+trans_t = [0, 2, 4, 10, 12, 50]
+trans_m = [1, 1, 0, 0, 1, 1]
+trans.setInterpTimes(trans_t)
+meshVector = []
+for i in xrange(len(trans_t)):
+    meshVector.append(mesh[ trans_m[i] ])
+trans.setMeshVector(meshVector)
+
+'''
+# cycle through number of time steps
+min_steps = 10
+max_steps = 1000
+step = 10
+tsteps = np.array(range(min_steps, max_steps + step, step))
+for i in range(len(tsteps)):
+    tsteps[i] = 5 * int(round(tsteps[i]/5)) + 1
+
+peak_power = []
+final_power = []
+for npts in tsteps:
+    
+    print "Solving transient with ", npts, " time steps"
+
+    # set time steps
+    t = np.linspace(0,50,npts)
+    trans.setCalcTimes(t)
+
+    # solve reactor kinetics problem
+    result = rk.solveTransient(trans, rkParams)
+    P = np.array(result.getPower())
+    P = P/P[0]
+
+    # record power peak, final power
+    peak_power.append(max(P))
+    final_power.append(P[-1])
+
+# plot error in peak power and final power
+ref_peak = peak_power[-1]
+ref_final = final_power[-1]
+peak_power = np.array(peak_power)
+final_power = np.array(final_power)
+diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
+diff_final = 100 * abs(final_power - ref_final) / ref_final
+plt.semilogy(tsteps, diff_peak, 'kx-')
+plt.semilogy(tsteps, diff_final, 'rx-')
+plt.xlabel('Number of Time Steps')
+plt.ylabel('Error in Power (%)')
+plt.legend(['Peak Power', 'Final Power'])
+plt.show()
+
+# find number of steps to converge to 1% peak power
+peak_steps = tsteps[-1]
+for i, error in enumerate(diff_peak):
+    if error < 1:
+        peak_steps = tsteps[i]
+        break;
+print "peak power convergence delta-t = ", 50.0/(peak_steps-1)
+
+# find number of steps to converge to 1% final power
+for i, error in enumerate(diff_final):
+    if error < 1:
+        final_steps = tsteps[i]
+        break;
+print "final power convergence delta-t = ", 50.0/(final_steps-1)
+
+# calculate convergence for problem requested time steps
+powers = range(7)
+mult = 2**np.array(powers)
+peak_power = []
+final_power = []
+for i, m in enumerate(mult):
+
+    npts = (peak_steps-1)/m + 1
+    print "Solving transient with ", npts, " time steps"
+    
+    # set time steps
+    t = np.linspace(0,50,npts)
+    trans.setCalcTimes(t)
+
+    # solve reactor kinetics problem
+    result = rk.solveTransient(trans, rkParams)
+    P = np.array(result.getPower())
+    P = P/P[0]
+
+    # record power peak
+    peak_power.append(max(P))
+    final_power.append(P[-1])
+
+    # plot converged core power vs time
+    if i == 0:
+        plt.plot(t, P/P[0], 'k.-')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Relative Power')
+        plt.show()
+
+#FIXME
+ref_peak = peak_power[0]
+ref_final = final_power[0]
+
+# plot error in peak power and final power
+tsteps = 50.0 / ( (peak_steps-1) / np.array(mult) )
+peak_power = np.array(peak_power)
+final_power = np.array(final_power)
+diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
+diff_final = 100 * abs(final_power - ref_final) / ref_final
+plt.semilogy(tsteps, diff_peak, 'kx-')
+plt.semilogy(tsteps, diff_final, 'rx-')
+plt.xlabel('Time Step Size (s)')
+plt.ylabel('Error in Power (%)')
+plt.legend(['Peak Power', 'Final Power'], loc=5)
+plt.show()
+
+# evaluate fractional error in peak, final powers vs spatial mesh
+spacing = [1,2,5,10]
+
+peak_power = []
+final_power = []
+for dx in spacing:
+
+    print "Solving transient for ", dx, " cm mesh spacing"
+    
+    # form all new mesh
+    npts = [node/dx for node in nodes]
+    mesh = []
+    for i in range(2):
+        temp = rk.Mesh()
+        temp.setMesh(npts)
+        temp.setWidths(widths)
+        temp.setMaterials(mats[i])
+        temp.setBoundaryConditions(2,2)
+        mesh.append(temp)
+
+    # set transient
+    trans = rk.Transient()
+    trans_t = [0, 2, 4, 10, 12, 50]
+    trans_m = [1, 1, 0, 0, 1, 1]
+    trans.setInterpTimes(trans_t)
+    meshVector = []
+    for i in xrange(len(trans_t)):
+        meshVector.append(mesh[ trans_m[i] ])
+    trans.setMeshVector(meshVector)
+
+    # set time steps
+    t = np.linspace(0, 50, peak_steps)
+    trans.setCalcTimes(t)
+
+    # solve reactor kinetics problem
+    result = rk.solveTransient(trans, rkParams)
+    P = np.array(result.getPower())
+    P = P/P[0]
+
+    # record power peak, final power
+    peak_power.append(max(P))
+    final_power.append(P[-1])
+
+# plot errors in peak, final power
+ref_peak = peak_power[-1]
+ref_final = final_power[-1]
+peak_power = np.array(peak_power)
+final_power = np.array(final_power)
+diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
+diff_final = 100 * abs(final_power - ref_final) / ref_final
+plt.plot(spacing, diff_peak, 'kx-')
+plt.plot(spacing, diff_final, 'rx-')
+plt.xlabel('Mesh Spacing (cm)')
+plt.ylabel('Error in Power (%)')
+plt.legend(['Peak Power', 'Final Power'])
+plt.show()
+
+'''
+'''
+Problem B
+'''
+# describe geometry
+mats = []
+mats.append([water, fuel1, fuel1, fuel1, water])
+mats.append([water, fuel1, fuel4, fuel1, water])
+widths = [30.0, 170.0, 20.0, 170.0, 30.0]
+nodes = [30, 170, 20, 170, 30]
+N = sum(nodes)
+
+# form all mesh
+mesh = []
+for i in range(2):
+    temp = rk.Mesh()
+    temp.setMesh(nodes)
+    temp.setWidths(widths)
+    temp.setMaterials(mats[i])
+    temp.setBoundaryConditions(2,2)
+    mesh.append(temp)
+
+# set transient
+trans = rk.Transient()
+trans_t = [0, 0.1, 0.2, 0.5, 1.5, 2.0]
+trans_m = [1, 1, 0, 0, 1, 1]
+trans.setInterpTimes(trans_t)
+meshVector = []
+for i in xrange(len(trans_t)):
+    meshVector.append(mesh[ trans_m[i] ])
+trans.setMeshVector(meshVector)
+
+# cycle through number of time steps
+min_steps = 10**4
+max_steps = 2*10**5
+step = 10**4
+tsteps = np.array(range(min_steps, max_steps + step, step))
+for i in range(len(tsteps)):
+    tsteps[i] = 4 * int(round(tsteps[i]/4)) + 1
+
+peak_power = []
+final_power = []
+for npts in tsteps:
+    
+    print "Solving transient with ", npts, " time steps"
+
+    # set time steps
+    t = np.linspace(0,2,npts)
+    trans.setCalcTimes(t)
+
+    # solve reactor kinetics problem
+    result = rk.solveTransient(trans, rkParams)
+    P = np.array(result.getPower())
+    P = P/P[0]
+
+    # record power peak, final power
+    peak_power.append(max(P))
+    final_power.append(P[-1])
+
+# plot error in peak power and final power
+ref_peak = peak_power[-1]
+ref_final = final_power[-1]
+peak_power = np.array(peak_power)
+final_power = np.array(final_power)
+diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
+diff_final = 100 * abs(final_power - ref_final) / ref_final
+plt.semilogy(tsteps, diff_peak, 'kx-')
+plt.semilogy(tsteps, diff_final, 'rx-')
+plt.xlabel('Number of Time Steps')
+plt.ylabel('Error in Power (%)')
+plt.legend(['Peak Power', 'Final Power'])
+plt.show()
+
+# find number of steps to converge to 1% peak power
+peak_steps = tsteps[-1]
+for i, error in enumerate(diff_peak):
+    if error < 10:
+        peak_steps = tsteps[i]
+        break;
+print "peak power convergence delta-t = ", 2.0/(peak_steps-1)
+
+# find number of steps to converge to 1% final power
+for i, error in enumerate(diff_final):
+    if error < 1:
+        final_steps = tsteps[i]
+        break;
+print "final power convergence delta-t = ", 2.0/(final_steps-1)
+
+# calculate convergence for problem requested time steps
+powers = range(7)
+mult = 2**np.array(powers)
+peak_power = []
+final_power = []
+for i, m in enumerate(mult):
+
+    npts = (peak_steps-1)/m + 1
+    print "Solving transient with ", npts, " time steps"
+    
+    # set time steps
+    t = np.linspace(0,2,npts)
+    trans.setCalcTimes(t)
+
+    # solve reactor kinetics problem
+    result = rk.solveTransient(trans, rkParams)
+    P = np.array(result.getPower())
+    P = P/P[0]
+
+    # record power peak
+    peak_power.append(max(P))
+    final_power.append(P[-1])
+
+    # plot converged core power vs time
+    if i == 0:
+        plt.plot(t, P/P[0], 'k.-')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Relative Power')
+        plt.show()
+
+# plot error in peak power and final power
+tsteps = 2.0 / ( (peak_steps-1) / np.array(mult) )
+peak_power = np.array(peak_power)
+final_power = np.array(final_power)
+diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
+diff_final = 100 * abs(final_power - ref_final) / ref_final
+plt.semilogy(tsteps, diff_peak, 'kx-')
+plt.semilogy(tsteps, diff_final, 'rx-')
+plt.xlabel('Time Step Size (s)')
+plt.ylabel('Error in Power (%)')
+plt.legend(['Peak Power', 'Final Power'], loc=5)
+plt.show()
+
+# evaluate fractional error in peak, final powers vs spatial mesh
+spacing = [1,2,5,10]
+
+peak_power = []
+final_power = []
+for dx in spacing:
+
+    print "Solving transient for ", dx, " cm mesh spacing"
+    
+    # form all new mesh
+    npts = [node/dx for node in nodes]
+    mesh = []
+    for i in range(2):
+        temp = rk.Mesh()
+        temp.setMesh(npts)
+        temp.setWidths(widths)
+        temp.setMaterials(mats[i])
+        temp.setBoundaryConditions(2,2)
+        mesh.append(temp)
+
+    # set transient
+    trans = rk.Transient()
+    trans_t = [0, 0.1, 0.2, 0.5, 1.5, 2.0]
+    trans_m = [1, 1, 0, 0, 1, 1]
+    trans.setInterpTimes(trans_t)
+    meshVector = []
+    for i in xrange(len(trans_t)):
+        meshVector.append(mesh[ trans_m[i] ])
+    trans.setMeshVector(meshVector)
+
+    # set time steps
+    t = np.linspace(0, 2, peak_steps)
+    trans.setCalcTimes(t)
+
+    # solve reactor kinetics problem
+    result = rk.solveTransient(trans, rkParams)
+    P = np.array(result.getPower())
+    P = P/P[0]
+
+    # record power peak, final power
+    peak_power.append(max(P))
+    final_power.append(P[-1])
+
+# plot errors in peak, final power
+ref_peak = peak_power[-1]
+ref_final = final_power[-1]
+peak_power = np.array(peak_power)
+final_power = np.array(final_power)
+diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
+diff_final = 100 * abs(final_power - ref_final) / ref_final
+plt.plot(spacing, diff_peak, 'kx-')
+plt.plot(spacing, diff_final, 'rx-')
+plt.xlabel('Mesh Spacing (cm)')
+plt.ylabel('Error in Power (%)')
+plt.legend(['Peak Power', 'Final Power'])
+plt.show()
+

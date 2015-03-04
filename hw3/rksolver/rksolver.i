@@ -54,9 +54,7 @@ namespace std {
 
 
 %apply (int* IN_ARRAY1, int DIM1) {(int * npts, int n_npts)};
-%apply (double* IN_ARRAY1, int DIM1) {(double * widths, int n_widths), 
-        (double * xs, int ng), (double * vals, int len), 
-        (double * timeArray, int n_steps};
+%apply (double* IN_ARRAY1, int DIM1) {(double * widths, int n_widths), (double * xs, int ng), (double * vals, int len), (double * timeArray, int n_steps)};
 
 /* Typemap for setting transient object:
  * Transient.setTimes (double * timeArray, int n_interp,

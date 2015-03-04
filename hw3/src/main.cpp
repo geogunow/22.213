@@ -81,8 +81,8 @@ int main(){
     Mesh* meshArray[] = {&mesh, &mesh, &mesh};
     int n_interp = 3;
 
-    double ts[] = {0,1,2,3,4};
-    int nsteps = 5;
+    double ts[] = {0,1};
+    int nsteps = 2;
 
     int I = 8;
     double chi_d[] = {1,0};
@@ -109,6 +109,7 @@ int main(){
     
     
     rkSolution rkResult = solveTransient(trans, rkParams);
+    std::vector<double> temp = rkResult.getPower();
     std::cout << "Success!" << endl;
     return 0;
 }
