@@ -1,6 +1,6 @@
 #include"diffSolver.h"
 
-//TODO: write interface (may need to change to arrays)
+//TODO: Description
 rkSolution solveTransient(Transient trans, RKdata rkParams)
 {
     // get vectors
@@ -10,7 +10,7 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
 
     // set transient variables
     double tol = pow(10,-6);
-    int maxiters = pow(10,4);
+    int maxiters = pow(10,6);
     double outer_tol = pow(10,-6);
     double inner_tol = pow(10,-6);
     int inner_solver = 2;
@@ -205,6 +205,250 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
 }
 
 
+//TODO: Description
+rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
+{
+    // get vectors
+    std::vector<Mesh> meshVector = trans.meshVector;
+    std::vector<double> timeVector = trans.timeVector;
+    std::vector<double> timeSteps = trans.timeSteps;
+
+    // set transient variables
+    double tol = pow(10,-6);
+    int maxiters = pow(10,6);
+    double outer_tol = pow(10,-6);
+    double inner_tol = pow(10,-6);
+    int inner_solver = 2;
+    int sum_inner_iters = 0;
+
+    //TODO: error checking
+    
+    // create transient reactor kinetics soution object
+    rkSolution rkResult = rkSolution();
+
+    // get the mesh for the first time step
+    Mesh mesh = meshVector[0];
+    
+    // initialize matrices
+    Indexer index = Indexer(mesh._N, mesh._G);
+
+    // set N to the number of nodes
+    int N = mesh._nodes;
+    
+    // form steady state matrices
+    Sparse F = formFMatrix(mesh, index);
+    Sparse SigA = formSigAMatrix(mesh, index);
+    Sparse SigS = formSigSMatrix(mesh, index);
+    Sparse Dhat = formDhatMatrix(mesh, index);
+    Sparse A = SigA + SigS + Dhat;
+    
+    // solve eigenvalue problem
+    eigenSolution ssResult = eigen_solver(A, F, N, mesh._G, outer_tol, 
+            inner_tol, maxiters, inner_solver);
+
+    // extract shape function for transient solution
+    std::vector<double> shape = ssResult.flux;
+    
+    // extract critical k for transient solution
+    double kcrit = ssResult.keff;
+    
+    // get the function for adjoint weighting
+    std::vector<double> adjoint (shape.size(), 1);
+    
+    if(adj_weighting == 1)
+    {
+        Sparse At = A.transpose();
+        Sparse Ft = F.transpose();
+        eigenSolution adjResult = eigen_solver(At, Ft, N, mesh._G, 
+                outer_tol, inner_tol, maxiters, inner_solver);
+        adjoint = adjResult.flux;
+    }
+
+    
+    // intialize precursor and flux structure
+    std::vector<std::vector<double> > C_tilde;
+    std::vector<double> flux(mesh._G, 0);
+    for(int g=0; g < mesh._G; g++)
+    {
+        std::vector<double> temp (rkParams.I, 0);
+        C_tilde.push_back(temp);
+    }
+    
+    // total fission tally
+    double tot_fission = 0;
+    
+    // calculate initial precursors
+    for(int n=0; n < mesh._N; n++)
+    {
+        // calculate fission production in the cell
+        double fp = 0;
+        for(int g=0; g < mesh._G; g++)
+            fp += ssResult.flux[index(n,g)] * mesh._material[n]->nuSigf[g]; 
+
+        // add to total fission tally
+        tot_fission += fp;
+
+        // calculate initial precursor population
+        for(int i=0; i < rkParams.I; i++)
+        {
+            if( rkParams.lambda_i[i] != 0 )
+            {
+                double precursors = rkParams.beta_i[i] * fp
+                    / ( rkParams.lambda_i[i] * kcrit );
+                
+                for(int g=0; g < mesh._G; g++)
+                    C_tilde[g][i] += rkParams.chi_d[g] * mesh._delta[n]
+                        * adjoint[index(n,g)] * precursors;
+            }
+        }
+    }
+    
+    
+    // precalculate time absorption without dt
+    std::vector<double> time_abs(mesh._G, 0);
+    for(int g=0; g < mesh._G; g++)
+        for(int n=0; n < mesh._N; n++)
+            time_abs[g] += mesh._delta[n] * adjoint[index(n,g)]
+                * shape[index(n,g)] / rkParams.v[g];
+    
+    // demand unity initial power
+    std::vector<double> power (mesh._G, 1);
+
+    // form PKE matricies TODO
+    SigS = formSigSMatrixPKE(mesh, index, shape, adjoint);
+    SigA = formSigAMatrixPKE(mesh, index, shape, adjoint);
+    F = formFMatrixPKE(mesh, index, shape, adjoint, rkParams, kcrit);
+    
+    // setup matrix for time dependent problem
+    Sparse T = SigA + SigS - F;
+    
+    // record power and profile
+    rkResult.powerProfile.push_back(power);
+
+    // cycle through time steps
+    for(int t=0; t < timeSteps.size()-1; t++)
+    {
+        // get current time step
+        double time = timeSteps[t+1];
+        double dt = timeSteps[t+1] - timeSteps[t];
+
+        // initialize new mesh
+        Mesh newMesh = Mesh();
+        
+        // interpolate mesh vector to form new mesh
+        newMesh.interpolate(timeVector, meshVector, time);
+
+        // check if new matrices need to be formed
+        bool modified[] = {false, false, false, false};
+        for(int n=0; n < mesh._N; n++)
+        {
+            // get materials
+            XSdata * mat1 = mesh._material[n];
+            XSdata * mat2 = newMesh._material[n];
+            
+            // check all groups
+            for(int g=0; g < mesh._G; g++)
+            {
+                // check absorption
+                if( mat1->siga[g] != mat2->siga[g] )
+                {
+                    modified[0] = true;
+                    modified[1] = true;
+                }
+                // check scattering
+                for(int gp=0; gp < mesh._G; gp++)
+                    if( mat1->sigs[gp][g] != mat2->sigs[gp][g] )
+                    {
+                        modified[0] = true;
+                        modified[2] = true;
+                    }
+                // check fission
+                if( mat1->nuSigf[g] != mat2->nuSigf[g] || 
+                        mat1->chi[g] != mat2->chi[g])
+                {
+                    modified[0] = true;
+                    modified[3] = true;
+                }
+            }
+        }
+
+        // test for changed time step
+        double time_step_change;
+        if(t > 0)
+            time_step_change = timeSteps[t+1] + timeSteps[t-1] 
+                - 2*timeSteps[t];
+        else
+            time_step_change = 0;
+
+        // form new matrices as needed
+        if(modified[0] or time_step_change != 0)
+        {
+            if(modified[1])
+                SigA = formSigAMatrixPKE(newMesh, index, shape, adjoint);
+        
+            if(modified[2])
+                SigS = formSigSMatrixPKE(newMesh, index, shape, adjoint);
+        
+            if(modified[3])
+                F = formFMatrixPKE(newMesh, index, shape, adjoint, 
+                        rkParams, kcrit);
+        
+            // recreate T = (A - F) matrix
+            T = SigA + SigS - F;
+
+            // add time absorption term on diagonal
+            for(int g=0; g < mesh._G; g++)
+            {
+                double val = time_abs[g] / dt + T(g,g);
+                T.setVal(g,g,val);
+            }
+        }
+
+        // create S vector
+        std::vector<double> S = formSVectorPKE(index, power, rkParams, 
+                C_tilde, dt);
+    
+        // copy newMesh to mesh
+        mesh = newMesh;
+        
+        // solve flux
+        power = T.optimalSOR(S, power, tol, maxiters, sum_inner_iters);
+
+
+        // precalcualte R_pi term
+        std::vector<double> rpi(mesh._G, 0);
+        for(int g=0; g < mesh._G; g++)
+            for(int gp=0; gp < mesh._G; gp++)
+                for(int n=0; n < mesh._N; n++)
+                {
+                    XSdata* mat = mesh._material[n];
+                    rpi[g] += rkParams.chi_d[g] * adjoint[index(n,g)]
+                        * mat->nuSigf[gp] * shape[index(n,gp)] * power[gp]
+                        * mesh._delta[n];
+                }
+
+        // calculate new precursors
+        for(int g=0; g < mesh._G; g++)
+        {
+            for(int i=0; i < rkParams.I; i++)
+            {
+                C_tilde[g][i] /= (1 + rkParams.lambda_i[i]);
+                C_tilde[g][i] += rkParams.beta_i[i] * dt / (kcrit * 
+                        (1 + rkParams.lambda_i[i] * dt)) * rpi[g];
+            }
+        }
+
+        // add total power to power vector
+        rkResult.powerProfile.push_back(power);
+        
+        if( (t+2)%100 == 0 or (t+2) == timeSteps.size())
+            std::cout << "Completed " << t+2 << "/" << timeSteps.size()
+                << " timesteps" << endl;
+    }
+    return rkResult;
+}
+
+
 /*
    Function for solving a diffusion problem given a mesh with boundary
    conditions. This function is designed for easy communication with Python
@@ -266,28 +510,10 @@ eigenSolution solveCritical(Mesh mesh, double outer_tol, double inner_tol,
     N = mesh._nodes;
    
     // form matrices
-    /*
     Sparse A = Sparse(N*G, N*G);
     Sparse F = Sparse(N*G, N*G);
     formSteadyStateMatrixProblem(mesh, A, F, index);
-    */
-    Sparse F = formFMatrix(mesh, index);
-    Sparse SigA = formSigAMatrix(mesh, index);
-    Sparse SigS = formSigSMatrix(mesh, index);
-    Sparse Dhat = formDhatMatrix(mesh, index);
-
-    Sparse A = SigA + SigS + Dhat;
-
-    /*
-    Sparse C = A-F;
-    std::cout << "A = " << endl;
-    A.display();
-    std::cout << "F = " << endl;
-    F.display();
-    std::cout << "C = " << endl;
-    C.display();
-    */
-
+        
     // solve eigenvalue problem
     eigenSolution result = eigen_solver(A, F, N, G, outer_tol, inner_tol, 
             maxiters, inner_solver);
@@ -580,7 +806,127 @@ std::vector<double> formSVector(Mesh mesh, RKdata rkParams,
     }
     return S;
 }
-        
+   
+
+//TODO: write description
+Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
+        std::vector<double> adjoint)
+{
+    Sparse SigS = Sparse(mesh._G, mesh._G);
+
+    for(int g=0; g < mesh._G; g++)
+    {
+        for(int gp=0; gp < mesh._G; gp++)
+        {
+            if(gp != g)
+            {
+                double diag = 0;
+                double offdiag = 0;
+                for(int n=0; n < mesh._N; n++)
+                {
+                    // calcualte diagonal element
+                    XSdata* mat = mesh._material[n];
+                    diag += mat->sigs[g][gp] * shape[index(n,g)] 
+                        * adjoint[index(n,g)] * mesh._delta[n];
+                    
+                    // calculate off diagonal elements
+                    offdiag = mat-> sigs[gp][g] * adjoint[index(n,g)]
+                        * shape[index(n,gp)] * mesh._delta[n];
+                }
+                
+                // set diagonal element
+                if(diag != 0)
+                    SigS.setVal(g,g,diag);
+                
+                // set offdiagonal elements
+                if(offdiag != 0)
+                    SigS.setVal(g,gp,-offdiag);
+            }
+        }
+    }
+    return SigS;
+}
+
+//TODO: write description
+Sparse formSigAMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
+        std::vector<double> adjoint)
+{
+    Sparse SigA = Sparse(mesh._G, mesh._G);
+    
+    for(int g=0; g < mesh._G; g++)
+    {
+        double val = 0;
+        for(int n=0; n < mesh._N; n++)
+        {
+            // calcualte diagonal element
+            XSdata* mat = mesh._material[n];
+            val += mat->siga[g] * shape[index(n,g)] 
+                * adjoint[index(n,g)] * mesh._delta[n];
+        }
+
+        // set diagonal element
+        SigA.setVal(g,g,val);
+    }
+    return SigA;
+}
+
+// TODO: write description
+Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
+       std::vector<double> adjoint, RKdata rkParams, double kcrit)
+{
+    Sparse F = Sparse(mesh._G, mesh._G);
+
+    for(int g=0; g < mesh._G; g++)
+    {
+        for(int gp=0; gp < mesh._G; gp++)
+        {
+            double val = 0;
+            for(int n=0; n < mesh._N; n++)
+            {
+                XSdata * mat = mesh._material[n];
+
+                double prompt = (1 - rkParams.beta) * mat->chi[g];
+                double delayed = 0;
+                for(int i=0; i < rkParams.I; i++)
+                    delayed += rkParams.beta_i[i] * rkParams.lambda_i[i]
+                        * rkParams.chi_d[g] / (1 + rkParams.lambda_i[i]);
+
+                val += (prompt + delayed) / kcrit * adjoint[index(n,g)]
+                    * shape[index(n,gp)] * mat->nuSigf[gp] * mesh._delta[n];
+            }
+
+            // set fission matrix value
+            if(val != 0)
+                F.setVal(g,gp,-val);
+        }
+    }
+    return F;
+}
+
+//TODO: write description
+std::vector<double> formSVectorPKE(Indexer index, std::vector<double> power, 
+        RKdata rkParams, std::vector<std::vector<double> > C_tilde, double dt)
+{
+    std::vector<double> S (index._G, 0);
+
+    for(int g=0; g < index._G; g++)
+    {
+        double val = power[g] / dt;
+        for(int i=0; i < rkParams.I; i++)
+        {
+            val += rkParams.lambda_i[i] * C_tilde[g][i] 
+                / (1 + rkParams.lambda_i[i] * dt);
+        }
+
+        // assign value
+        S[g] = val;
+    }
+
+    return S;
+}
+
+
+
 /*
     Forms the loss and fission matricies from given XSdata and a defined mesh
     with boundary conditions BC

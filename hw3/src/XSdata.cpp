@@ -10,8 +10,17 @@ XSdata::XSdata()
 /*
    Destructor for mesh
    */
-XSdata::~XSdata() { }
+XSdata::~XSdata() {
+    
+    D.clear();
+    siga.clear();
+    nuSigf.clear();
+    chi.clear();
+    for(int g=0; g<G; g++)
+        sigs[g].clear();
+    sigs.clear();
 
+}
 
 /* 
    functions for setting material properties

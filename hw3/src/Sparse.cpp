@@ -12,15 +12,21 @@ Sparse::Sparse(int M, int N){
     // fill rows with empty vectors
     for(int i=0; i<M; i++)
     {
-        std::map<int,double> *row = new std::map<int,double>;
-        _vals.push_back( *row );
+        std::map<int,double> row;
+        _vals.push_back( row );
     }
 }
 
 /*
    Destructor for sparse matrix
    */
-Sparse::~Sparse() { }
+Sparse::~Sparse(){
+    
+    for(int i=0; i < _vals.size(); i++)
+        _vals[i].clear();
+    _vals.clear();
+
+}
 
 /*
    Operator overloading to set matrix values

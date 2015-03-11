@@ -1,6 +1,7 @@
 import rksolver as rk
 import numpy as np
 import matplotlib.pyplot as plt
+import gc
 from utils import *
 from math import *
 
@@ -113,6 +114,12 @@ for i in range(2):
     temp.setBoundaryConditions(2,2)
     mesh.append(temp)
 
+# calculate static rod worth
+sol1 = rk.solveCritical(mesh[1], 10**-6, 10**-6, 10**6, 2)
+sol2 = rk.solveCritical(mesh[0], 10**-6, 10**-6, 10**6, 2)
+
+print "Rod worth part B = ", (sol2.keff/sol1.keff - 1)/beta
+
 # set transient
 trans = rk.Transient()
 trans_t = [0, 2, 4, 10, 12, 50]
@@ -210,10 +217,6 @@ for i, m in enumerate(mult):
         plt.ylabel('Relative Power')
         plt.show()
 
-#FIXME
-ref_peak = peak_power[0]
-ref_final = final_power[0]
-
 # plot error in peak power and final power
 tsteps = 50.0 / ( (peak_steps-1) / np.array(mult) )
 peak_power = np.array(peak_power)
@@ -226,7 +229,8 @@ plt.xlabel('Time Step Size (s)')
 plt.ylabel('Error in Power (%)')
 plt.legend(['Peak Power', 'Final Power'], loc=5)
 plt.show()
-
+'''
+peak_steps = 270
 # evaluate fractional error in peak, final powers vs spatial mesh
 spacing = [1,2,5,10]
 
@@ -271,8 +275,8 @@ for dx in spacing:
     final_power.append(P[-1])
 
 # plot errors in peak, final power
-ref_peak = peak_power[-1]
-ref_final = final_power[-1]
+ref_peak = peak_power[0]
+ref_final = final_power[0]
 peak_power = np.array(peak_power)
 final_power = np.array(final_power)
 diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
@@ -284,7 +288,6 @@ plt.ylabel('Error in Power (%)')
 plt.legend(['Peak Power', 'Final Power'])
 plt.show()
 
-'''
 '''
 Problem B
 '''
@@ -306,6 +309,11 @@ for i in range(2):
     temp.setBoundaryConditions(2,2)
     mesh.append(temp)
 
+# calculate static rod worth
+sol1 = rk.solveCritical(mesh[1], 10**-6, 10**-6, 10**6, 2)
+sol2 = rk.solveCritical(mesh[0], 10**-6, 10**-6, 10**6, 2)
+print "Rod worth part B = ", (sol2.keff/sol1.keff - 1)/beta
+
 # set transient
 trans = rk.Transient()
 trans_t = [0, 0.1, 0.2, 0.5, 1.5, 2.0]
@@ -317,6 +325,7 @@ for i in xrange(len(trans_t)):
 trans.setMeshVector(meshVector)
 
 # cycle through number of time steps
+'''
 min_steps = 10**4
 max_steps = 2*10**5
 step = 10**4
@@ -326,7 +335,7 @@ for i in range(len(tsteps)):
 
 peak_power = []
 final_power = []
-for npts in tsteps:
+for i, npts in enumerate(tsteps):
     
     print "Solving transient with ", npts, " time steps"
 
@@ -338,6 +347,8 @@ for npts in tsteps:
     result = rk.solveTransient(trans, rkParams)
     P = np.array(result.getPower())
     P = P/P[0]
+    del result
+    gc.collect()
 
     # record power peak, final power
     peak_power.append(max(P))
@@ -402,6 +413,10 @@ for i, m in enumerate(mult):
         plt.ylabel('Relative Power')
         plt.show()
 
+#FIXME
+ref_peak = peak_power[0]
+ref_final = final_power[0]
+
 # plot error in peak power and final power
 tsteps = 2.0 / ( (peak_steps-1) / np.array(mult) )
 peak_power = np.array(peak_power)
@@ -459,8 +474,8 @@ for dx in spacing:
     final_power.append(P[-1])
 
 # plot errors in peak, final power
-ref_peak = peak_power[-1]
-ref_final = final_power[-1]
+ref_peak = peak_power[0]
+ref_final = final_power[0]
 peak_power = np.array(peak_power)
 final_power = np.array(final_power)
 diff_peak = 100 * abs(peak_power - ref_peak) / ref_peak
@@ -471,4 +486,4 @@ plt.xlabel('Mesh Spacing (cm)')
 plt.ylabel('Error in Power (%)')
 plt.legend(['Peak Power', 'Final Power'])
 plt.show()
-
+'''

@@ -30,6 +30,7 @@ int main(){
     double siga2[] = {0.0002, 0.010};
     double nuSigf2[] = {0.0, 0.0};
     double chi2[] = {1.0, 0.0};
+    double chi_d2[] = {1.0, 0.0};
     double sigs_vals2[] = {0,0.032,0,0};
     
     water.setD(D2,2);

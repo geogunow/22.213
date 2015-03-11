@@ -15,7 +15,13 @@ Mesh::Mesh()
 /*
    Destructor for mesh
    */
-Mesh::~Mesh() { }
+Mesh::~Mesh() {
+
+    _delta.clear();
+    _mesh_pts.clear();
+    _material.clear();
+
+}
 
 
 /*
