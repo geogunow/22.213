@@ -313,8 +313,10 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     
     // demand unity initial power
     std::vector<double> power (mesh._G, 1);
+    std::cout<< "POWER 1 start = " << power[0] << endl;
+    std::cout<< "POWER 2 start = " << power[1] << endl;
 
-    // form PKE matricies TODO
+    // form PKE matricies
     SigS = formSigSMatrixPKE(mesh, index, shape, adjoint);
     SigA = formSigAMatrixPKE(mesh, index, shape, adjoint);
     F = formFMatrixPKE(mesh, index, shape, adjoint, rkParams, kcrit);
@@ -406,7 +408,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
 
         // create S vector
         std::vector<double> S = formSVectorPKE(index, power, rkParams, 
-                C_tilde, dt);
+                C_tilde, dt, time_abs);
     
         // copy newMesh to mesh
         mesh = newMesh;
@@ -473,7 +475,6 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
 eigenSolution solveCritical(Mesh mesh, double outer_tol, double inner_tol,
         int maxiters, int inner_solver)
 {
-
     // error checking
     eigenSolution NULL_solution = eigenSolution();
     if( mesh._N == 0 )
@@ -506,8 +507,6 @@ eigenSolution solveCritical(Mesh mesh, double outer_tol, double inner_tol,
     int N = mesh._N;
     int G = mesh._G; 
     Indexer index = Indexer(N,G);
-
-    N = mesh._nodes;
    
     // form matrices
     Sparse A = Sparse(N*G, N*G);
@@ -515,6 +514,7 @@ eigenSolution solveCritical(Mesh mesh, double outer_tol, double inner_tol,
     formSteadyStateMatrixProblem(mesh, A, F, index);
         
     // solve eigenvalue problem
+    N = mesh._nodes;
     eigenSolution result = eigen_solver(A, F, N, G, outer_tol, inner_tol, 
             maxiters, inner_solver);
 
@@ -905,16 +905,17 @@ Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
 
 //TODO: write description
 std::vector<double> formSVectorPKE(Indexer index, std::vector<double> power, 
-        RKdata rkParams, std::vector<std::vector<double> > C_tilde, double dt)
+        RKdata rkParams, std::vector<std::vector<double> > C_tilde, double dt,
+        std::vector<double> time_abs)
 {
     std::vector<double> S (index._G, 0);
 
     for(int g=0; g < index._G; g++)
     {
-        double val = power[g] / dt;
+        double val = power[g] * time_abs[g] / dt;
         for(int i=0; i < rkParams.I; i++)
         {
-            val += rkParams.lambda_i[i] * C_tilde[g][i] 
+            val += rkParams.lambda_i[i] * C_tilde[g][i]
                 / (1 + rkParams.lambda_i[i] * dt);
         }
 
