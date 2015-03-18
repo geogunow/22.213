@@ -313,8 +313,6 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     
     // demand unity initial power
     std::vector<double> power (mesh._G, 1);
-    std::cout<< "POWER 1 start = " << power[0] << endl;
-    std::cout<< "POWER 2 start = " << power[1] << endl;
 
     // form PKE matricies
     SigS = formSigSMatrixPKE(mesh, index, shape, adjoint);
@@ -377,14 +375,22 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
         // test for changed time step
         double time_step_change;
         if(t > 0)
-            time_step_change = timeSteps[t+1] + timeSteps[t-1] 
-                - 2*timeSteps[t];
+        {
+            double time_step1 = timeSteps[t+1] - timeSteps[t];
+            double time_step2 = timeSteps[t] - timeSteps[t-1];
+            time_step_change = abs(time_step1 - time_step2)/time_step2;
+        }
         else
             time_step_change = 0;
 
         // form new matrices as needed
-        if(modified[0] or time_step_change != 0)
+        if(modified[0] or time_step_change > pow(10,-6))
         {
+            std::cout << "MODDING AT TIME STEP " << t << endl;
+            if(modified[0])
+                std::cout << "reason = MOD0" << endl;
+            else
+                std::cout << "reason = time step change" << endl;
             if(modified[1])
                 SigA = formSigAMatrixPKE(newMesh, index, shape, adjoint);
         
@@ -434,9 +440,8 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
         {
             for(int i=0; i < rkParams.I; i++)
             {
-                C_tilde[g][i] /= (1 + rkParams.lambda_i[i]);
-                C_tilde[g][i] += rkParams.beta_i[i] * dt / (kcrit * 
-                        (1 + rkParams.lambda_i[i] * dt)) * rpi[g];
+                C_tilde[g][i] += rkParams.beta_i[i] * dt / kcrit * rpi[g];
+                C_tilde[g][i] /= (1 + rkParams.lambda_i[i] * dt);
             }
         }
 
@@ -816,11 +821,11 @@ Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
 
     for(int g=0; g < mesh._G; g++)
     {
+        double diag = 0;
         for(int gp=0; gp < mesh._G; gp++)
         {
             if(gp != g)
             {
-                double diag = 0;
                 double offdiag = 0;
                 for(int n=0; n < mesh._N; n++)
                 {
@@ -834,15 +839,17 @@ Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
                         * shape[index(n,gp)] * mesh._delta[n];
                 }
                 
-                // set diagonal element
-                if(diag != 0)
-                    SigS.setVal(g,g,diag);
-                
                 // set offdiagonal elements
                 if(offdiag != 0)
                     SigS.setVal(g,gp,-offdiag);
             }
         }
+        
+        // set diagonal element
+        if(diag != 0)
+            SigS.setVal(g,g,diag);
+                
+
     }
     return SigS;
 }

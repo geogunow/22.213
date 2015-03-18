@@ -63,3 +63,9 @@ edit:
 
 run:
 	./$(program)
+
+install:
+	cd ..; \
+	python setup.py install --user; \
+	cd src
+
