@@ -252,6 +252,10 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     // extract critical k for transient solution
     double kcrit = ssResult.keff;
     
+    // solve eigenvalue problem
+    eigenSolution ssResult2 = eigen_solver(A, F, N, mesh._G, outer_tol, 
+            inner_tol, maxiters, inner_solver);
+    
     // get the function for adjoint weighting
     std::vector<double> adjoint (shape.size(), 1);
     
@@ -317,11 +321,20 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     // form PKE matricies
     SigS = formSigSMatrixPKE(mesh, index, shape, adjoint);
     SigA = formSigAMatrixPKE(mesh, index, shape, adjoint);
-    F = formFMatrixPKE(mesh, index, shape, adjoint, rkParams, kcrit);
+    F = formFMatrixPKE(mesh, index, shape, adjoint, rkParams, kcrit, 
+            timeSteps[1] - timeSteps[0]);
     
     // setup matrix for time dependent problem
-    Sparse T = SigA + SigS - F;
+    Sparse T = SigA + SigS - F; 
     
+    // add time absorption term on diagonal
+    double dt = timeSteps[1] - timeSteps[0];
+    for(int g=0; g < mesh._G; g++)
+    {
+        double val = time_abs[g] / dt + T(g,g);
+        T.setVal(g,g,val);
+    }
+
     // record power and profile
     rkResult.powerProfile.push_back(power);
 
@@ -330,7 +343,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     {
         // get current time step
         double time = timeSteps[t+1];
-        double dt = timeSteps[t+1] - timeSteps[t];
+        dt = timeSteps[t+1] - timeSteps[t];
 
         // initialize new mesh
         Mesh newMesh = Mesh();
@@ -386,20 +399,15 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
         // form new matrices as needed
         if(modified[0] or time_step_change > pow(10,-6))
         {
-            std::cout << "MODDING AT TIME STEP " << t << endl;
-            if(modified[0])
-                std::cout << "reason = MOD0" << endl;
-            else
-                std::cout << "reason = time step change" << endl;
             if(modified[1])
                 SigA = formSigAMatrixPKE(newMesh, index, shape, adjoint);
         
             if(modified[2])
                 SigS = formSigSMatrixPKE(newMesh, index, shape, adjoint);
         
-            if(modified[3])
+            if(modified[3] or time_step_change > pow(10,-6))
                 F = formFMatrixPKE(newMesh, index, shape, adjoint, 
-                        rkParams, kcrit);
+                        rkParams, kcrit, dt);
         
             // recreate T = (A - F) matrix
             T = SigA + SigS - F;
@@ -447,7 +455,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
 
         // add total power to power vector
         rkResult.powerProfile.push_back(power);
-        
+
         if( (t+2)%100 == 0 or (t+2) == timeSteps.size())
             std::cout << "Completed " << t+2 << "/" << timeSteps.size()
                 << " timesteps" << endl;
@@ -879,7 +887,7 @@ Sparse formSigAMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
 
 // TODO: write description
 Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
-       std::vector<double> adjoint, RKdata rkParams, double kcrit)
+       std::vector<double> adjoint, RKdata rkParams, double kcrit, double dt)
 {
     Sparse F = Sparse(mesh._G, mesh._G);
 
@@ -895,8 +903,8 @@ Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
                 double prompt = (1 - rkParams.beta) * mat->chi[g];
                 double delayed = 0;
                 for(int i=0; i < rkParams.I; i++)
-                    delayed += rkParams.beta_i[i] * rkParams.lambda_i[i]
-                        * rkParams.chi_d[g] / (1 + rkParams.lambda_i[i]);
+                    delayed += rkParams.beta_i[i] * rkParams.lambda_i[i] * dt
+                        * rkParams.chi_d[g] / (1 + rkParams.lambda_i[i] * dt);
 
                 val += (prompt + delayed) / kcrit * adjoint[index(n,g)]
                     * shape[index(n,gp)] * mat->nuSigf[gp] * mesh._delta[n];

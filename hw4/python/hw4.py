@@ -69,6 +69,16 @@ fuel5.setSigs( [[0, 0.022], [0, 0]])
 fuel5.setNuSigf( [0.006, 0.195] )
 fuel5.setChi( [1.0, 0.0] )
 
+# testing material
+test = rk.XSdata()
+test.setD( [1.3, 0.5] )
+test.setSiga( [0.0098, 0.114] )
+test.setSigs( [[0, 0.022], [0, 0]])
+test.setNuSigf( [0.006/1.37205, 0.195/1.37205] )
+test.setChi( [1.0, 0.0] )
+
+
+
 # eigenvalue solver parameters
 outer_tol = 10**-6
 inner_tol = 10**-5
@@ -76,9 +86,13 @@ maxiters = 10000
 inner_solver = 1 # optimal SOR
 
 # kinetic parameters
+'''
 betas = [0.000218, 0.001023, 0.000605, 0.00131, 0.00220, 0.00060, 0.000540,
         0.000152]
 halflife = [55.6, 24.5, 16.3, 5.21, 2.37, 1.04, 0.424, 0.195]
+'''
+betas = [0, 0]
+halflife = [1, 1]
 lambdas = log(2) / np.array(halflife)
 energy = np.array([10**3, 0.1])
 v = 2200 * 100 * np.sqrt(energy / 0.0253)
@@ -98,8 +112,10 @@ Problem A
 '''
 # describe geometry
 mats = []
-mats.append([water, fuel1, fuel1, fuel1, water])
-mats.append([water, fuel1, fuel3, fuel1, water])
+#mats.append([water, fuel1, fuel1, fuel1, water])
+#mats.append([water, fuel1, fuel1, fuel1, water])
+mats.append([test, test, test, test, test])
+mats.append([test, test, test, test, test])
 widths = [30.0, 170.0, 20.0, 170.0, 30.0]
 nodes = [30, 170, 20, 170, 30]
 N = sum(nodes)
@@ -117,14 +133,14 @@ for i in range(2):
 # set transient
 trans = rk.Transient()
 trans_t = [0, 2, 4, 10, 12, 50]
-trans_m = [1, 1, 0, 0, 1, 1]
+trans_m = [1, 1, 1, 1, 1, 1]
 trans.setInterpTimes(trans_t)
 meshVector = []
 for i in xrange(len(trans_t)):
     meshVector.append(mesh[ trans_m[i] ])
 trans.setMeshVector(meshVector)
 
-t = np.linspace(0,50,100001)
+t = np.linspace(0,50,101)
 trans.setCalcTimes(t)
 
 '''
@@ -134,7 +150,7 @@ plt.semilogy(t,P,'kx-')
 plt.show()
 '''
 
-result = rk.solvePKE(trans, rkParams, 1)
+result = rk.solvePKE(trans, rkParams, 0)
 P1 = []
 P2 = []
 for i, time in enumerate(t):

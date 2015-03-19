@@ -52,7 +52,7 @@ Sparse formSigAMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
         std::vector<double> adjoint);
 
 Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
-       std::vector<double> adjoint, RKdata rkParams, double kcrit);
+       std::vector<double> adjoint, RKdata rkParams, double kcrit, double dt);
 
 std::vector<double> formSVectorPKE(Indexer index, std::vector<double> power, 
         RKdata rkParams, std::vector<std::vector<double> > C_tilde, double dt,
