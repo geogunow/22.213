@@ -325,7 +325,22 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
             timeSteps[1] - timeSteps[0]);
     
     // setup matrix for time dependent problem
-    Sparse T = SigA + SigS - F; 
+    Sparse T = SigA + SigS - F;
+    
+    // T matrix
+    std::cout << "T Matrix 1:" << endl;
+    for(int g=0; g<mesh._G; g++)
+    {
+        std::cout << "[";
+        for(int gp=0; gp<mesh._G; gp++)
+        {
+            std::cout << T(g,gp);
+            if(gp != mesh._G-1)
+                std::cout << " ";
+        }
+        std::cout << "]" << endl;
+    }
+    std::cout << endl;
     
     // add time absorption term on diagonal
     double dt = timeSteps[1] - timeSteps[0];
@@ -335,6 +350,21 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
         T.setVal(g,g,val);
     }
 
+    // T matrix
+    std::cout << "T Matrix 2:" << endl;
+    for(int g=0; g<mesh._G; g++)
+    {
+        std::cout << "[";
+        for(int gp=0; gp<mesh._G; gp++)
+        {
+            std::cout << T(g,gp);
+            if(gp != mesh._G-1)
+                std::cout << " ";
+        }
+        std::cout << "]" << endl;
+    }
+    std::cout << endl;
+ 
     // record power and profile
     rkResult.powerProfile.push_back(power);
 
@@ -399,6 +429,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
         // form new matrices as needed
         if(modified[0] or time_step_change > pow(10,-6))
         {
+            std::cout << "Found modified matrices!!!" << endl;
             if(modified[1])
                 SigA = formSigAMatrixPKE(newMesh, index, shape, adjoint);
         
@@ -843,7 +874,7 @@ Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
                         * adjoint[index(n,g)] * mesh._delta[n];
                     
                     // calculate off diagonal elements
-                    offdiag = mat-> sigs[gp][g] * adjoint[index(n,g)]
+                    offdiag += mat-> sigs[gp][g] * adjoint[index(n,g)]
                         * shape[index(n,gp)] * mesh._delta[n];
                 }
                 
@@ -912,7 +943,7 @@ Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
 
             // set fission matrix value
             if(val != 0)
-                F.setVal(g,gp,-val);
+                F.setVal(g,gp,val);
         }
     }
     return F;
