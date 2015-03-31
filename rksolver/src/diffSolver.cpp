@@ -208,13 +208,13 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
 //TODO: Description
 rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
 {
-    std::cout << "Change log v3" << endl;
+    std::cout << "Change log v4" << endl;
 
     // set transient variables
     double tol = pow(10,-6);
     int maxiters = pow(10,6);
-    double outer_tol = pow(10,-6);
-    double inner_tol = pow(10,-6);
+    double outer_tol = pow(10,-8);
+    double inner_tol = pow(10,-8);
     int inner_solver = 2;
     int sum_inner_iters = 0;
 
@@ -245,16 +245,13 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     std::vector<double> shape = ssResult.flux;
 
     // FIXME normalize shape
-    /*
     for(int g=0; g < mesh._G; g++)
     {
         double sum_g = 0;
         for(int n=0; n < mesh._N; n++)
             sum_g += shape[index(n,g)];
-        for(int n=0; n < mesh._N; n++)
-            shape[index(n,g)] /= sum_g;
+        std::cout << "Flux " << g << " = " << sum_g << endl;
     }
-    */
 
     //FIXME
     std::cout << "Testing original matrices:" << endl;
