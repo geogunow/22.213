@@ -151,6 +151,7 @@ plt.show()
 '''
 
 result = rk.solvePKE(trans, rkParams, 0)
+'''
 P1 = []
 P2 = []
 for i, time in enumerate(t):
@@ -161,4 +162,4 @@ for i, time in enumerate(t):
 plt.semilogy(t,P1,'kx-')
 plt.semilogy(t,P2,'rx-')
 plt.show()
-
+'''

@@ -208,10 +208,7 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
 //TODO: Description
 rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
 {
-    // get vectors
-    std::vector<Mesh> meshVector = trans.meshVector;
-    std::vector<double> timeVector = trans.timeVector;
-    std::vector<double> timeSteps = trans.timeSteps;
+    std::cout << "Change log v3" << endl;
 
     // set transient variables
     double tol = pow(10,-6);
@@ -225,7 +222,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     rkSolution rkResult = rkSolution();
 
     // get the mesh for the first time step
-    Mesh mesh = meshVector[0];
+    Mesh mesh = trans.meshVector[0];
     
     // initialize matrices
     Indexer index = Indexer(mesh._N, mesh._G);
@@ -246,6 +243,18 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
 
     // extract shape function for transient solution
     std::vector<double> shape = ssResult.flux;
+
+    // FIXME normalize shape
+    /*
+    for(int g=0; g < mesh._G; g++)
+    {
+        double sum_g = 0;
+        for(int n=0; n < mesh._N; n++)
+            sum_g += shape[index(n,g)];
+        for(int n=0; n < mesh._N; n++)
+            shape[index(n,g)] /= sum_g;
+    }
+    */
 
     //FIXME
     std::cout << "Testing original matrices:" << endl;
@@ -268,53 +277,79 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
     // get the function for adjoint weighting
     std::vector<double> adjoint (shape.size(), 1);
     
-    // intialize precursor and flux structure
-    std::vector<std::vector<double> > C_tilde;
-    std::vector<double> flux(mesh._G, 0);
-    for(int g=0; g < mesh._G; g++)
-    {
-        std::vector<double> temp (rkParams.I, 0);
-        C_tilde.push_back(temp);
-    }
-    
-    // precalculate time absorption without dt
-    std::vector<double> time_abs(mesh._G, 0);
-    for(int g=0; g < mesh._G; g++)
-        for(int n=0; n < mesh._N; n++)
-            time_abs[g] += mesh._delta[n] * adjoint[index(n,g)]
-                * shape[index(n,g)] / rkParams.v[g];
-    
     // demand unity initial power
     std::vector<double> power (mesh._G, 1);
 
     // form PKE matricies
     SigS = formSigSMatrixPKE(mesh, index, shape, adjoint);
     SigA = formSigAMatrixPKE(mesh, index, shape, adjoint);
-    F = formFMatrixPKE(mesh, index, shape, adjoint, rkParams, kcrit, 
-            timeSteps[1] - timeSteps[0]);
+    F = formFMatrixPKE(mesh, index, shape, adjoint, rkParams, kcrit, 999);
     
     // setup matrix for time dependent problem
     Sparse T = SigA + SigS - F;
 
-    // FIXME
-    std::cout << "Testing contracted matrices:" << endl;
-   
-    double dt;
-    /*
-    // add time absorption term on diagonal
-    double dt = timeSteps[1] - timeSteps[0];
-    for(int g=0; g < mesh._G; g++)
+    std::cout << endl << "Testing contracted matrices:" << endl << endl;
+
+    // siga matrix
+    std::cout << "SigA Matrix:" << endl;
+    for(int g=0; g<mesh._G; g++)
     {
-        double val = time_abs[g] / dt + T(g,g);
-        std::cout << "Adding value " << time_abs[g] / dt << " to " << T(g,g) << " for group ";
-        std::cout << g << endl;
-        T.setVal(g,g,val);
+        std::cout << "[";
+        for(int gp=0; gp<mesh._G; gp++)
+        {
+            std::cout << SigA(g,gp);
+            if(gp != mesh._G-1)
+                std::cout << " ";
+        }
+        std::cout << "]" << endl;
     }
-    */
-
-    // record power and profile
-    rkResult.powerProfile.push_back(power);
-
+    std::cout << endl;
+ 
+    // sigs matrix
+    std::cout << "SigS Matrix:" << endl;
+    for(int g=0; g<mesh._G; g++)
+    {
+        std::cout << "[";
+        for(int gp=0; gp<mesh._G; gp++)
+        {
+            std::cout << SigS(g,gp);
+            if(gp != mesh._G-1)
+                std::cout << " ";
+        }
+        std::cout << "]" << endl;
+    }
+    std::cout << endl;
+  
+    // F matrix
+    std::cout << "F Matrix:" << endl;
+    for(int g=0; g<mesh._G; g++)
+    {
+        std::cout << "[";
+        for(int gp=0; gp<mesh._G; gp++)
+        {
+            std::cout << F(g,gp);
+            if(gp != mesh._G-1)
+                std::cout << " ";
+        }
+        std::cout << "]" << endl;
+    }
+    std::cout << endl;
+ 
+    // T matrix
+    std::cout << "T Matrix:" << endl;
+    for(int g=0; g<mesh._G; g++)
+    {
+        std::cout << "[";
+        for(int gp=0; gp<mesh._G; gp++)
+        {
+            std::cout << T(g,gp);
+            if(gp != mesh._G-1)
+                std::cout << " ";
+        }
+        std::cout << "]" << endl;
+    }
+    std::cout << endl;
+   
     // solve steady state
     left = T * power;
     s1 = 0;
@@ -326,29 +361,10 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting)
         s2 += pow(val,2);
     }
     nn = left.size();
-    std::cout << "PKE:" << endl;
+    std::cout << "Result: " << endl;
     std::cout << "Residual = " << s1 / nn << endl;;
     std::cout << "Variance = " << (s2/nn) - pow(s1/nn,2) << endl;
     
-
-    // cycle through time steps
-    for(int t=0; t < timeSteps.size()-1; t++)
-    {
-        // get current time step
-        double time = timeSteps[t+1];
-        dt = timeSteps[t+1] - timeSteps[t];
-
-        // create S vector
-        std::vector<double> S = formSVectorPKE(index, power, rkParams, 
-                C_tilde, dt, time_abs);
-    
-        // solve flux
-        power = T.optimalSOR(S, power, tol, maxiters, sum_inner_iters);
-
-        // add total power to power vector
-        rkResult.powerProfile.push_back(power);
-
-    }
     return rkResult;
 }
 
@@ -732,9 +748,12 @@ Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,
                         * adjoint[index(n,g)] * mesh._delta[n];
                     
                     // calculate off diagonal elements
-                    offdiag = mat-> sigs[gp][g] * adjoint[index(n,g)]
+                    offdiag += mat-> sigs[gp][g] * adjoint[index(n,g)]
                         * shape[index(n,gp)] * mesh._delta[n];
                 }
+                std::cout << "FOR g = " << g << " and gp = " << gp << endl;
+                std::cout << "DIAG = " << diag << " and offidag = " << offdiag;
+                std::cout << endl;
                 
                 // set offdiagonal elements
                 if(offdiag != 0)
