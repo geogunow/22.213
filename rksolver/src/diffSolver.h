@@ -43,12 +43,19 @@ void formSteadyStateMatrixProblem(Mesh mesh, Sparse &A, Sparse &F,
 eigenSolution eigen_solver(Sparse A, Sparse F, int N, int G, double tol, 
         double inner_tol, int maxiters, int inner_solver);
 
-rkSolution solvePKE(Transient trans, RKdata rkParams, int adj_weighting);
+rkSolution solvePKE(Transient trans, RKdata rkParams, int shape_step,
+        int adj_weighting, int adj_step);
+
+rkSolution solvePKESimple(Transient trans, RKdata rkParams, int shape_step,
+        int adj_weighting, int adj_step);
 
 Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
         std::vector<double> adjoint);
 
 Sparse formSigAMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
+        std::vector<double> adjoint);
+
+Sparse formDhatMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
         std::vector<double> adjoint);
 
 Sparse formFMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape,

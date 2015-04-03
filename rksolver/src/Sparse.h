@@ -48,6 +48,7 @@ class Sparse{
                 std::vector<double> x0, double tol, int maxiters, 
                 int &sumiters);
 
+        double sum();
         double dot(std::vector<double> &x1, std::vector<double> &x2);
         std::map<int,double>::const_iterator rowStart(int i);
         std::map<int,double>::const_iterator rowEnd(int i);

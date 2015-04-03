@@ -607,3 +607,24 @@ double Sparse::dot(std::vector<double> &x1, std::vector<double> &x2)
 
     return s;
 }
+
+/*
+   Function that sums the matrix values
+   */
+double Sparse::sum()
+{
+    double s = 0;
+    for(int i=0; i<_M; i++)
+    {
+        std::map<int,double>::const_iterator it;
+        for(it = _vals[i].begin(); it != _vals[i].end(); ++it)
+        {
+            // load matrix elements
+            double v = it->second;
+            s += v;
+        }
+    }
+    return s;
+}
+
+
