@@ -49,6 +49,8 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int shape_step,
 rkSolution solvePKESimple(Transient trans, RKdata rkParams, int shape_step,
         int adj_weighting, int adj_step);
 
+rkSolution solveTransientFT(Transient trans, RKdata rkParams);
+
 Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
         std::vector<double> adjoint);
 
@@ -65,4 +67,11 @@ std::vector<double> formSVectorPKE(Indexer index, std::vector<double> power,
         RKdata rkParams, std::vector<std::vector<double> > C_tilde, double dt,
         std::vector<double> time_abs);
 
+Sparse formFhatMatrixFT(Sparse F, Mesh mesh, RKdata rkParams, double dt, 
+        double kcrit, double omega, Indexer index);
+
+std::vector<double> formSVectorFT(Mesh mesh, RKdata rkParams, 
+        std::vector<double> source, std::vector<double> flux, 
+        std::vector<std::vector<double> > C, double dt, double kcrit, 
+        double omega, Indexer index);
 #endif

@@ -109,7 +109,7 @@ int main(){
     trans.setMeshVector(meshArray, n_interp);
     
     
-    rkSolution rkResult = solveTransient(trans, rkParams);
+    rkSolution rkResult = solveTransientFT(trans, rkParams);
     std::vector<double> temp = rkResult.getPower();
     std::cout << "Success!" << endl;
     return 0;
