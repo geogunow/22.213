@@ -1,11 +1,5 @@
 #include"diffSolver.h"
 
-double expT(double x)
-{
-    return exp(x);
-    //return 1.0 / (1.0 - x);
-}
-
 //TODO: Description
 rkSolution solveTransient(Transient trans, RKdata rkParams)
 {
@@ -752,7 +746,7 @@ rkSolution solvePKESimple(Transient trans, RKdata rkParams, int shape_step,
 
 
 //TODO: Description
-rkSolution solveTransientFT(Transient trans, RKdata rkParams)
+rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
 {
     // get vectors
     std::vector<Mesh> meshVector = trans.meshVector;
@@ -760,11 +754,11 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams)
     std::vector<double> timeSteps = trans.timeSteps;
 
     // set transient variables
-    double tol = pow(10,-6);
+    double tol = trans.tolerance;
     int maxiters = pow(10,6);
-    double outer_tol = pow(10,-6);
-    double inner_tol = pow(10,-6);
-    int inner_solver = 2;
+    double outer_tol = tol;
+    double inner_tol = tol;
+    int inner_solver = 1;
     int sum_inner_iters = 0;
 
     //TODO: error checking
@@ -795,8 +789,8 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams)
     // extract critical k for transient solution
     double kcrit = ssResult.keff;
 
-    // initialize omega to be zero
-    double omega = 0;
+    // initialize omega to be zeros
+    std::vector<double> omega(mesh._N, 0);
 
     // intialize precursor and flux structure
     std::vector<std::vector<double> > precursors;
@@ -810,6 +804,13 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams)
     // initialize first time step of flux
     flux = ssResult.flux;
 
+    // Normalize intial flux
+    double tot_flux = 0;
+    for(int i=0; i < flux.size(); i++)
+        tot_flux += ssResult.flux[i];
+    for(int i=0; i < flux.size(); i++)
+        flux[i] /= tot_flux;
+
     // total fission tally
     double tot_fission = 0;
     
@@ -819,10 +820,10 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams)
         // calculate fission production in the cell
         double fp = 0;
         for(int g=0; g < mesh._G; g++)
-            fp += ssResult.flux[index(n,g)] * mesh._material[n]->nuSigf[g]; 
+            fp += flux[index(n,g)] * mesh._material[n]->nuSigf[g]; 
 
         // add to total fission tally
-        tot_fission += fp;
+        tot_fission += fp * mesh._delta[n];
 
         // calculate initial precursor population
         for(int i=0; i < rkParams.I; i++)
@@ -908,39 +909,26 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams)
             double time_abs = 1 / (rkParams.v[g] * dt);
             for(int n=0; n < mesh._N; n++)
             {
-                double val = mesh._delta[n] * time_abs * (1 + omega*dt) + 
+                double val = mesh._delta[n] * time_abs * (1 + omega[n]*dt) + 
                     T( index(n,g), index(n,g) );
                 T.setVal( index(n,g), index(n,g), val );
             }
         }
        
-        // FIXME       
-        //T.display();
-        
         // create S vector
-        // FIXME: is this mesh right??
         std::vector<double> S = formSVectorFT(newMesh, rkParams, F*flux, flux, 
                 precursors, dt, kcrit, omega, index);
-        
-        // FIXME
-        /*
-        for(int n=0; n<mesh._N; n++)
-        {
-            std::cout << "[";
-            for(int g=0; g<mesh._G; g++)
-            {
-                std::cout << S[index(n,g)] << " ";
-            }
-            std::cout << "]\n";
-        }
-        */
-        
+ 
         // copy newMesh to mesh
         mesh = newMesh;
         
         // solve flux
+        sum_inner_iters = 0;
         std::vector<double> psi = 
-            T.optimalSOR(S, flux, tol, maxiters, sum_inner_iters);
+            T.gaussSeidel(S, flux, tol, maxiters, sum_inner_iters);
+
+        // record inner iterations
+        rkResult.innerSteps.push_back(sum_inner_iters);
 
         // calculate new neutron precursors
         for(int n=0; n < mesh._N; n++)
@@ -955,47 +943,53 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams)
                 double lambda_i = rkParams.lambda_i[i];
 
                 // calculate decayed precursors
-                precursors[n][i] = precursors[n][i] * expT(-lambda_i * dt);
+                precursors[n][i] = precursors[n][i] * exp(-lambda_i * dt);
 
                 // add production of precursors
                 for(int g=0; g < mesh._G; g++)
                 {
                     double Ag = rkParams.beta_i[i] * mat->nuSigf[g] /
-                        (kcrit * dt * (lambda_i + omega));
+                        (kcrit * dt * (lambda_i + omega[n]));
                     double Bg = (psi[index(n,g)] - flux[index(n,g)]) /
-                        (lambda_i + omega);
+                        (lambda_i + omega[n]);
 
                     precursors[n][i] += Ag * ( (psi[index(n,g)] * dt - Bg)
-                            * expT(omega * dt) - (flux[index(n,g)] * dt - Bg)
-                            * expT(-lambda_i * dt) );
-                    /*
-                    precursors[n][i] += Ag * ( psi[index(n,g)]
-                            * ( (dt - 1.0/(lambda_i + omega)) * expT(omega*dt)
-                            + expT(-lambda_i*dt) / (lambda_i + omega) )
-                            - flux[index(n,g)] * ( -expT(omega*dt)
-                            / (lambda_i + omega) + (dt + 1.0/(lambda_i + omega))
-                            * expT(-lambda_i*dt) ) );
-                    */
+                            * exp(omega[n] * dt) - (flux[index(n,g)] * dt - Bg)
+                            * exp(-lambda_i * dt) );
                 }
             }
         }
 
         // calculate old and new total fluxes and reassign fluxes
-        double old_flux_total;
-        double new_flux_total;
+        std::vector<double> old_flux_total(mesh._N,0);
+        std::vector<double> new_flux_total(mesh._N,0);
         for(int n=0; n < mesh._N; n++)
         {
             for(int g=0; g < mesh._G; g++)
             {
-                old_flux_total += flux[index(n,g)];
-                flux[index(n,g)] = psi[index(n,g)] * expT(omega*dt);
-                new_flux_total += flux[index(n,g)];
+                old_flux_total[n] += flux[index(n,g)];
+                flux[index(n,g)] = psi[index(n,g)] * exp(omega[n]*dt);
+                new_flux_total[n] += flux[index(n,g)];
             }
         }
 
-        // update omega
-        omega = log(new_flux_total / old_flux_total) / dt;
-        omega = 0;
+        // update omega globally if requested
+        if(omegaMode == 1)
+        {
+            double sum_old_flux = 0, sum_new_flux = 0;
+            for(int n=0; n < mesh._N; n++)
+            {
+                sum_old_flux += old_flux_total[n];
+                sum_new_flux += new_flux_total[n];
+            }
+            for(int n=0; n < mesh._N; n++)
+                omega[n] = log(sum_new_flux / sum_old_flux) / dt;
+        }
+
+        // update omega locally if requested
+        else if(omegaMode == 2)
+            for(int n=0; n < mesh._N; n++)
+                omega[n] = log(new_flux_total[n] / old_flux_total[n]) / dt;
 
         // calculate total power (assuming nu is constant)
         double total_power = 0;
@@ -1531,7 +1525,7 @@ std::vector<double> formSVectorPKE(Indexer index, std::vector<double> power,
 
 // form Fhat frequency transform transient matrix
 Sparse formFhatMatrixFT(Sparse F, Mesh mesh, RKdata rkParams, double dt, 
-        double kcrit, double omega, Indexer index)
+        double kcrit, std::vector<double> omega, Indexer index)
 {
     // extract dimensions
     int N = index._N;
@@ -1564,10 +1558,10 @@ Sparse formFhatMatrixFT(Sparse F, Mesh mesh, RKdata rkParams, double dt,
                         double beta_i = rkParams.beta_i[i];
                         double chi_d = rkParams.chi_d[g];
                         delayed += chi_d * beta_i * lambda_i / (chi
-                            * dt * (lambda_i + omega)) * (dt 
-                            - 1.0 / (lambda_i + omega) 
-                            + expT(-(lambda_i + omega) * dt) 
-                            / (lambda_i + omega));
+                            * dt * (lambda_i + omega[n])) * (dt 
+                            - 1.0 / (lambda_i + omega[n]) 
+                            + exp(-(lambda_i + omega[n]) * dt) 
+                            / (lambda_i + omega[n]));
                     }
                     
                     double fission = F(index(n,g), index(n,gp)) 
@@ -1581,10 +1575,11 @@ Sparse formFhatMatrixFT(Sparse F, Mesh mesh, RKdata rkParams, double dt,
     return Fhat;
 }
 
+//TODO: wrtie description
 std::vector<double> formSVectorFT(Mesh mesh, RKdata rkParams, 
         std::vector<double> source, std::vector<double> flux, 
         std::vector<std::vector<double> > C, double dt, double kcrit, 
-        double omega, Indexer index)
+        std::vector<double> omega, Indexer index)
 {
     // extract dimensions
     int N = index._N;
@@ -1615,12 +1610,15 @@ std::vector<double> formSVectorFT(Mesh mesh, RKdata rkParams,
                 double beta_i = rkParams.beta_i[i];
                 
                 precursor += chi_d * lambda_i * C[n][i] * 
-                        expT(-(lambda_i + omega) * dt);
+                        exp(-(lambda_i + omega[n]) * dt);
                 if( chi != 0 )
-                    precursor += chi_d * lambda_i * source[index(n,g)] * beta_i
-                        / (chi * kcrit * dt * (lambda_i + omega)) 
-                        * ( -1/(lambda_i + omega) + (dt + 1/(lambda_i + omega))
-                        * expT(-(lambda_i + omega) * dt) );
+                {
+                    double q1 = chi_d * lambda_i * beta_i * source[index(n,g)]
+                        / (chi * dx * kcrit * (lambda_i + omega[n]));
+                    double experm = exp(-(lambda_i + omega[n]) * dt);
+                    precursor += q1 * ( -experm + (1-experm)
+                            / ((lambda_i + omega[n]) * dt) );
+                }
             }
 
             S[index(n,g)] = flux[index(n,g)] * dx / (rkParams.v[g] * dt)
@@ -1850,9 +1848,6 @@ eigenSolution eigen_solver(
         for(int n=0; n<temp.size(); n++)
             sum_fission += temp[n];
         
-        // compute keff
-        //k = sum_fission / (N*G);
-
         // calculate residual
         double res = 0;
         for(int n=0; n < temp.size(); n++)
@@ -1899,6 +1894,7 @@ Transient::Transient()
     // set length
     n_pts = 0;
     set = false;
+    tolerance = pow(10,-8);
 }
 
 // destructor for transient
@@ -1936,5 +1932,12 @@ void Transient::setMeshVector(Mesh ** meshArray, int n_interp)
         meshVector.push_back(*meshArray[m]);
     
     set = true;
+    return;
+}
+
+// set tolerance
+void Transient::setTolerance(double tol)
+{
+    tolerance = tol;
     return;
 }

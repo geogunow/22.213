@@ -25,7 +25,7 @@ void printVector(std::vector<double> x)
     std::printf("[");
     for(int i=0; i<x.size(); i++)
     {
-        std::printf("%f", x[i]);
+        std::printf("%e", x[i]);
         if( i != x.size()-1 )
             std::printf(",\n");
         else

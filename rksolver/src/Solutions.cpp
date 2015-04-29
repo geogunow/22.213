@@ -71,10 +71,7 @@ std::vector<double> eigenSolution::getPower(int g)
 /*
    Reactor kinetics solution constructor
    */
-rkSolution::rkSolution()
-{
-    unused = 0;
-}
+rkSolution::rkSolution() {};
 
 //  Reactor kinetics solution destructor
 rkSolution::~rkSolution() {};
@@ -156,4 +153,12 @@ std::vector<double> rkSolution::getRawPowerProfile(int t)
 std::vector<double> rkSolution::getPower()
 {
     return power;
+}
+
+/*
+   Returns a vector of the number of interations at each time step
+   */
+std::vector<double> rkSolution::getInnerSteps()
+{
+    return innerSteps;
 }

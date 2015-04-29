@@ -34,6 +34,7 @@ class Sparse{
         double operator() (int i, int j);
         Sparse copy();
         void display(void);
+        void displaySparse(void);
         Sparse transpose(void);
         int size(void);
         std::vector<double> pointJacobi(std::vector<double> b, 

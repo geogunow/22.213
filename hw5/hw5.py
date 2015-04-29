@@ -76,10 +76,6 @@ maxiters = 10000
 inner_solver = 1 # optimal SOR
 
 # kinetic parameters
-'''
-betas = [0.001, 0.002]
-halflife = [100, 20]
-'''
 betas = [0.000218, 0.001023, 0.000605, 0.00131, 0.00220, 0.00060, 0.000540,
         0.000152]
 halflife = [55.6, 24.5, 16.3, 5.21, 2.37, 1.04, 0.424, 0.195]
@@ -97,42 +93,129 @@ rkParams.setV(v)
 rkParams.setBetas(betas)
 rkParams.setLambdas(lambdas)
 
-# describe geometry
-mats = []
-mats.append([water, fuel1, fuel1, fuel1, water])
-mats.append([water, fuel1, fuel1, fuel1, water])
-widths = [30.0, 170.0, 20.0, 170.0, 30.0]
-nodes = [30, 170, 20, 170, 30]
-N = sum(nodes)
+# desribe transients
+trans1 = rk.Transient()
+trans2 = rk.Transient()
+for trans in [trans1, trans2]:
 
-# form all mesh
-mesh = []
-for i in range(2):
-    temp = rk.Mesh()
-    temp.setMesh(nodes)
-    temp.setWidths(widths)
-    temp.setMaterials(mats[i])
-    temp.setBoundaryConditions(2,2)
-    mesh.append(temp)
+    # define transient specifice parameters such as rodded material
+    if trans == trans1:
+        rod = fuel3
+        trans_t = [0, 2, 4, 10, 12, 50]
+    else:
+        rod = fuel4
+        trans_t = [0, 0.1, 0.2, 0.5, 1.5, 2.0]
 
-# set transient
-trans = rk.Transient()
-trans_t = [0, 2, 4, 10, 12, 50]
-trans_m = [1, 1, 0, 0, 1, 1]
-trans.setInterpTimes(trans_t)
-meshVector = []
-for i in xrange(len(trans_t)):
-    meshVector.append(mesh[ trans_m[i] ])
-trans.setMeshVector(meshVector)
+    # describe geometry
+    mats = []
+    mats.append([water, fuel1, fuel1, fuel1, water])
+    mats.append([water, fuel1, rod, fuel1, water])
+    widths = [30.0, 170.0, 20.0, 170.0, 30.0]
+    nodes = [3, 17, 2, 17, 3]
+    N = sum(nodes)
 
-# set time steps
-t = np.linspace(0, 50, 100)
-trans.setCalcTimes(t)
+    # form all mesh
+    mesh = []
+    for i in range(2):
+        temp = rk.Mesh()
+        temp.setMesh(nodes)
+        temp.setWidths(widths)
+        temp.setMaterials(mats[i])
+        temp.setBoundaryConditions(2,2)
+        mesh.append(temp)
 
-# solve reactor kinetics problem
-result = rk.solveTransientFT(trans, rkParams)
-P = np.array(result.getPower())
-P = P/P[0]
+    # define transient
+    trans_m = [1, 1, 0, 0, 1, 1]
+    trans.setInterpTimes(trans_t)
+    meshVector = []
+    for i in xrange(len(trans_t)):
+        meshVector.append(mesh[ trans_m[i] ])
+    trans.setMeshVector(meshVector)
 
-plt.plot(t, P, 'kx-')
-plt.show()
+'''
+Part A
+'''
+'''
+# compute all cases for global FT
+time_scales = [50, 2]
+transients = [trans1, trans2]
+for tmax, trans in zip(time_scales, transients):
+
+    # define tolerance and timestep criteria
+    tolerance_criteria = [1e-2, 1e-4, 1e-6]
+    timeStep_criteria = [1e-1, 1e-2, 1e-3, 1e-4] 
+
+    # loop over convergence/timestep criteria
+    for tolerance in tolerance_criteria:
+        
+        # initialize figures
+        fig1 = plt.figure()
+        ax1 = fig1.add_subplot(111)
+        fig2 = plt.figure()
+        ax2 = fig2.add_subplot(111)
+        leg = []
+
+        for timeStep in timeStep_criteria:
+            
+            # setup transient
+            t = np.linspace(0, tmax, int(tmax/timeStep) + 1)
+            trans.setCalcTimes(t)
+            trans.setTolerance(tolerance)
+            
+            # solve transient
+            result = rk.solveTransientFT(trans, rkParams, 1)
+            P = np.array(result.getPower())
+            iters = np.array(result.getInnerSteps())
+            
+            # plot results
+            ax1.semilogy(t, P/P[0])
+            ax2.semilogy(t[1:], iters)
+
+            # add legend description
+            leg.append("$\Delta t$ = " + str(timeStep))
+    
+        # label axes
+        ax1.set_xlabel('Time (s)')
+        ax1.set_ylabel('Normalized Power')
+        ax1.legend(leg)
+        ax2.set_xlabel('Time (s)')
+        ax2.set_ylabel('Iteration Count')
+        ax2.legend(leg)
+
+        # display plots
+        plt.show()
+'''
+
+'''
+Part B
+'''
+# compute all cases for global FT
+time_scales = [50, 2]
+transients = [trans1, trans2]
+for tmax, trans in zip(time_scales, transients):
+
+    # define tolerance and timestep criteria
+    tolerance = 1e-6
+    timeStep = 1e-2
+
+    # setup transient
+    t = np.linspace(0, tmax, int(tmax/timeStep) + 1)
+    trans.setCalcTimes(t)
+    trans.setTolerance(tolerance)
+    
+    # try global (1) and local (2) frequencies
+    for typ in [1,2]:
+        
+        # solve transient
+        result = rk.solveTransientFT(trans, rkParams, typ)
+        P = np.array(result.getPower())
+
+        # plot normalized power
+        plt.plot(t, P/P[0])    
+
+    # label plot
+    plt.xlabel('Time (s)')
+    plt.ylabel('Normalized Power')
+    plt.legend(['Global $\omega$','Local $\omega$'])
+    plt.show()
+

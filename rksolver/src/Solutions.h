@@ -27,7 +27,7 @@ class rkSolution{
         std::vector<std::vector<double> > powerProfile;
         std::vector<std::vector<std::vector<double> > > gPowerProfile;
         std::vector<double> power;
-        int unused;
+        std::vector<double> innerSteps;
 
         rkSolution();
         virtual ~rkSolution();
@@ -36,6 +36,7 @@ class rkSolution{
         std::vector<double> getPowerProfile(int t, int g);
         std::vector<double> getRawPowerProfile(int t);
         std::vector<double> getPower();
+        std::vector<double> getInnerSteps();
 };
 
 

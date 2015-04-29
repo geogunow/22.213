@@ -263,13 +263,30 @@ void Sparse::display(void)
         std::printf("[");
         for(int j=0; j<_N; j++)
         {
-            std::printf("%f", this->getVal(i,j));
+            std::printf("%e", this->getVal(i,j));
             if( j != _N-1)
                 std::printf(", ");
             else
                 std::printf("]");
         }
         std::printf(endl);
+    }
+    return;
+}
+
+/*
+   Function that prints the matrix to the screen in sparse form
+   */
+void Sparse::displaySparse(void)
+{
+    for(int i=0; i<_M; i++)
+    {
+        for(int j=0; j<_N; j++)
+        {
+            double val = this->getVal(i,j);
+            if(val != 0)
+                std::printf("(%d,%d) -> %e\n", i, j, val);
+        }
     }
     return;
 }

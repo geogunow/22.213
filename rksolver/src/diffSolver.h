@@ -11,6 +11,7 @@ class Transient{
     public:
         int n_pts;
         bool set;
+        double tolerance;
         std::vector<Mesh> meshVector;
         std::vector<double> timeVector;
         std::vector<double> timeSteps;
@@ -20,6 +21,7 @@ class Transient{
         void setInterpTimes(double * timeArray, int n_steps);
         void setCalcTimes(double * timeArray, int n_steps);
         void setMeshVector(Mesh ** meshArray, int n_interp);
+        void setTolerance(double tol);
 };
 
 
@@ -49,7 +51,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int shape_step,
 rkSolution solvePKESimple(Transient trans, RKdata rkParams, int shape_step,
         int adj_weighting, int adj_step);
 
-rkSolution solveTransientFT(Transient trans, RKdata rkParams);
+rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode);
 
 Sparse formSigSMatrixPKE(Mesh mesh, Indexer index, std::vector<double> shape, 
         std::vector<double> adjoint);
@@ -68,10 +70,10 @@ std::vector<double> formSVectorPKE(Indexer index, std::vector<double> power,
         std::vector<double> time_abs);
 
 Sparse formFhatMatrixFT(Sparse F, Mesh mesh, RKdata rkParams, double dt, 
-        double kcrit, double omega, Indexer index);
+        double kcrit, std::vector<double> omega, Indexer index);
 
 std::vector<double> formSVectorFT(Mesh mesh, RKdata rkParams, 
         std::vector<double> source, std::vector<double> flux, 
         std::vector<std::vector<double> > C, double dt, double kcrit, 
-        double omega, Indexer index);
+        std::vector<double> omega, Indexer index);
 #endif
