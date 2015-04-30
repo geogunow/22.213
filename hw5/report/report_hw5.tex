@@ -22,21 +22,21 @@
 	In this problem set, I extend the \texttt{rksolver} library to include a frequency transformed transient solver. This library is written in C++ for speed and includes a SWIG wrapper for Python. This allows for easy data entry and manipulation in Python while still being able to take advantage of the speed of C++.
 	
 	\paragraph{Derivation of Frequency Transform Equations}
-	I start this problem set by deriving the frequency transform equations which form the basis of the updates to \texttt{rksolver}. Starting from the multi-group group diffusion equation,
+	First, the frequency transform equations are derived which form the basis of the updates to \texttt{rksolver}. Starting from the multi-group group diffusion equation,
 	\begin{eqnarray}
 	\frac{\partial}{\partial t} \left\langle \frac{1}{v_g(\vec{r},t)} \phi_g(\vec{r},t) \right\rangle = \nabla D_g(\vec{r},t) \nabla \phi_g(\vec{r},t) - \Sigma_{t,g}(\vec{r},t) \phi_g(\vec{r},t) + \sum_{g'=1}^{G} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t) \phi_{g'}(\vec{r},t) \nonumber \\ 
 	+ \left[ 1- \beta(\vec{r},t) \right] \frac{\chi_g^p}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \phi_{g'}(\vec{r},t) + \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t) \nonumber
 	\end{eqnarray}
-	we note that 
+	note that
 	\begin{equation}
-	\Sigma_{t,g} = \Sigma_{a,g} + \sum_{g'= 1}^G \Sigma_{s}^{g\rightarrow g'} \nonumber
+	\Sigma_{t,g} = \Sigma_{a,g} + \sum_{g'= 1}^G \Sigma_{s}^{g\rightarrow g'} \nonumber.
 	\end{equation}
-	and we assume $v_g$ and $\beta$ are constant in both space and time, leading to the following equation:
+	If $v_g$ and $\beta$ are assumed to be constant in both space and time, the balance equation reduces to
 	\begin{eqnarray}
 	\frac{\partial}{\partial t} \left( \frac{1}{v_g} \phi_g(\vec{r},t) \right) = \nabla D_g(\vec{r}) \nabla \phi_g(\vec{r},t)  - \Sigma_{a,g}(\vec{r},t) \phi_g(\vec{r},t) - \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t) \phi_{g}(\vec{r},t)  \nonumber \\  + \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t) \phi_{g'}(\vec{r},t)
-	+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \phi_{g'}(\vec{r},t) + \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t) \nonumber
+	+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \phi_{g'}(\vec{r},t) + \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t) \nonumber.
 	\end{eqnarray}
-	Now we let $\phi_g(\vec{r},t) = \psi_g(\vec{r},t) e^{\omega_g(\vec{r}) (t-t_n)}$ which leads to
+	Now let $\phi_g(\vec{r},t) = \psi_g(\vec{r},t) e^{\omega_g(\vec{r}) (t-t_n)}$ which leads to
 	\begin{eqnarray}
 	\frac{\partial}{\partial t} \left( \frac{1}{v_g} \psi_g(\vec{r},t) e^{\omega_g(\vec{r}) (t-t_n)} \right) = \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t) e^{\omega_g(\vec{r}) (t-t_n)}  - \Sigma_{a,g}(\vec{r},t) \psi_g(\vec{r},t) e^{\omega_g(\vec{r}) (t-t_n)} - \nonumber \\ \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t) \psi_g(\vec{r},t) e^{\omega_g(\vec{r}) (t-t_n)}    + \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t) \psi_{g'}(\vec{r},t) e^{\omega_{g'}(\vec{r}) (t-t_n)} \nonumber \\
 	+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \psi_{g'}(\vec{r},t) e^{\omega_{g'}(\vec{r}) (t-t_n)} + \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t) \nonumber
@@ -46,7 +46,7 @@
 	\frac{1}{v_g} \frac{\partial \psi_g(\vec{r},t)}{\partial t} + \frac{\omega_g(\vec{r})}{v_g} \psi_g(\vec{r},t)  = \nabla D_g(\vec{r},t) \nabla \psi_g(\vec{r},t) - \Sigma_{a,g}(\vec{r},t) \psi_g(\vec{r},t) -  \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t) \psi_g(\vec{r},t) \nonumber \\ + e^{-\omega_g(\vec{r}) (t-t_n)} \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t) \psi_{g'}(\vec{r},t) e^{\omega_{g'}(\vec{r}) (t-t_n)} \nonumber \\
 	+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} e^{-\omega_g(\vec{r}) (t-t_n)} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \psi_{g'}(\vec{r},t) e^{\omega_{g'}(\vec{r}) (t-t_n)} \nonumber \\ + e^{-\omega_g(\vec{r}) (t-t_n)} \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t) \nonumber.
 	\end{eqnarray}
-	Turning to the precursors, we define the time rate of change for the precursors $C_i(\vec{r},t)$ as
+	Turning to the precursors, the time rate of change for the precursors $C_i(\vec{r},t)$ can be expressed as
 	\begin{equation}
 	\frac{\partial}{\partial t} C_i(\vec{r},t) = -\lambda_i C_i(\vec{r},t) + \frac{\beta_i(\vec{r},t)}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \phi_{g'}(\vec{r},t) \nonumber
 	\end{equation}
@@ -61,25 +61,25 @@
 	 C_i(\vec{r},t_{n+1}) e^{\lambda_i t_{n+1}} - C_i(\vec{r},t_{n}) e^{\lambda_i t_{n}} = \int_{t=t_n}^{t=t_{n+1}}  \partial t \, \frac{\beta_i(\vec{r},t) e^{\lambda_i t}}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \psi_{g'}(\vec{r},t) e^{\omega_{g'}(\vec{r}) (t-t_n)} \nonumber \\
 	 C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} +  \int_{t=t_n}^{t=t_{n+1}}  \partial t \, \frac{\beta_i(\vec{r},t) e^{-\lambda_i \left(t_{n+1} - t \right)}}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \psi_{g'}(\vec{r},t) e^{\omega_{g'}(\vec{r}) (t-t_n)} \nonumber
 	\end{eqnarray}	
-	where we define $\Delta t = t_{n+1} - t_n$. If we assume $\nu \Sigma_{f,g'}(\vec{r},t)$ is constant over the interval $(t_n, t_{n+1})$ and the flux factor $\psi_{g'}(\vec{r},t)$ varies linearly with time as
+	where $\Delta t = t_{n+1} - t_n$. Assuming $\nu \Sigma_{f,g'}(\vec{r},t)$ is constant over the interval $(t_n, t_{n+1})$ and the flux factor $\psi_{g'}(\vec{r},t)$ varies linearly with time as
 	\begin{equation}
 	\psi_{g'}(\vec{r},t) = \psi_{g'}(\vec{r},t_n) \frac{t_{n+1}-t}{\Delta t} + \psi_{g'}(\vec{r},t_{n+1}) \frac{t-t_n}{\Delta t} 
 	\end{equation}
-	we find that
+	the precursor equation transforms to
 	\begin{eqnarray}
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} + \nonumber \\  \int_{t=t_n}^{t=t_{n+1}}  \partial t \, \frac{\beta_i(\vec{r},t) e^{-\lambda_i \left(t_{n+1} - t \right)}}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t_{n+1}) \left( \psi_{g'}(\vec{r},t_n) \frac{t_{n+1}-t}{\Delta t} \ + \psi_{g'}(\vec{r},t_{n+1}) \frac{t-t_n}{\Delta t} \right) e^{\omega_{g'}(\vec{r}) (t-t_n)}. \nonumber
 	\end{eqnarray}
-	If we assume that $\beta(\vec{r},t)$ is constant over space and time, we find
+	Assuming that $\beta(\vec{r},t)$ is constant over space and time,
 	\begin{eqnarray}
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} + \nonumber \\  \sum_{g'=1}^{G} e^{-\left(\lambda_i t_{n+1} + \omega_{g'}(\vec{r})t_n \right)} \int_{t=t_n}^{t=t_{n+1}}  \partial t \, \frac{\beta_i e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t}}{k_{crit}}  \nu \Sigma_{f,g'}(\vec{r},t_{n+1}) \left( \psi_{g'}(\vec{r},t_n) \frac{t_{n+1}-t}{\Delta t} + \psi_{g'}(\vec{r},t_{n+1}) \frac{t-t_n}{\Delta t}  \right). \nonumber
 	\end{eqnarray}
-	After some re-arranging, we can write the expression as two separate integrals
+	After some re-arranging, this expression can be re-written as two separate integrals
 	\begin{eqnarray}
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} + \nonumber \\  \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t} e^{-\left(\lambda_i t_{n+1} + \omega_{g'}(\vec{r}) t_n \right)} 
 	\times \nonumber \\ 
 	\left(  \Delta(\psi_{g'}) \int_{t=t_n}^{t=t_{n+1}}  \partial t \, t e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t} - \Delta(\psi_{g'} t) \int_{t=t_n}^{t=t_{n+1}}  \partial t \, e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t} \right) \nonumber
 	\end{eqnarray}
-	where $\Delta(\psi_{g'}) =   \psi_{g'}(\vec{r},t_{n+1}) - \psi_{g'}(\vec{r},t_n)$ and $\Delta(\psi_{g'}t) =   \psi_{g'}(\vec{r},t_{n+1}) t_n - \psi_{g'}(\vec{r},t_n) t_{n+1}$. Solving these integrals, we find	
+	where $\Delta(\psi_{g'}) =   \psi_{g'}(\vec{r},t_{n+1}) - \psi_{g'}(\vec{r},t_n)$ and $\Delta(\psi_{g'}t) =   \psi_{g'}(\vec{r},t_{n+1}) t_n - \psi_{g'}(\vec{r},t_n) t_{n+1}$. Solving these integrals,	
 	\begin{eqnarray}
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} + \nonumber \\  \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1}) \Delta(\psi_{g'})}{k_{crit} \Delta t} e^{-\left(\lambda_i t_{n+1} + \omega_{g'}(\vec{r}) t_n \right)}  \left( \frac{t_{n+1} e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t_{n+1}} - t_n e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t_{n}}}{\lambda_i + \omega_{g'}(\vec{r})} \right) \nonumber \\
 	- \sum_{g'=1}^{G} \frac{\beta_i\nu\Sigma_f(\vec{r},t_{n+1}) \Delta(\psi_{g'})}{k_{crit} \Delta t} e^{-\left(\lambda_i t_{n+1} + \omega_{g'}(\vec{r}) t_n \right)} \left( \frac{e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t_{n+1}} - e^{\left(\lambda_i + \omega_{g'}(\vec{r}) \right)  t_{n}}}{\left(\lambda_i + \omega_{g'}(\vec{r})\right)^2}\right)
@@ -91,12 +91,12 @@
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} + \nonumber \\  \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t \left(\lambda_i + \omega_{g'}(\vec{r})\right)} e^{ \omega_{g'}(\vec{r}) \Delta t} \left( t_{n+1} \Delta(\psi_{g'}) - \Delta(\psi_{g'}t) - \frac{\Delta(\psi_{g'})}{\lambda_i + \omega_{g'}(\vec{r})} \right) \nonumber \\ 
 	- \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t \left(\lambda_i + \omega_{g'}(\vec{r})\right)} e^{-\lambda_i \Delta t} \left( t_{n} \Delta(\psi_{g'}) - \Delta(\psi_{g'}t) - \frac{\Delta(\psi_{g'})}{\lambda_i + \omega_{g'}(\vec{r})} \right). \nonumber
 	\end{eqnarray}	
-	Reinserting the definitions of $\Delta(\psi_{g'})$ and $\Delta(\psi_{g'}t)$ we find
+	Reinserting the definitions of $\Delta(\psi_{g'})$ and $\Delta(\psi_{g'}t)$,
 	\begin{eqnarray}
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} + \nonumber \\  \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t \left(\lambda_i + \omega_{g'}(\vec{r})\right)} e^{ \omega_{g'}(\vec{r}) \Delta t} \left( \psi_{g'}(t_{n+1}) \Delta t - \frac{\psi_{g'}(t_{n+1})-\psi_{g'}(t_{n})}{\lambda_i + \omega_{g'}(\vec{r})} \right) \nonumber \\ 
-	- \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t \left(\lambda_i + \omega_{g'}(\vec{r})\right)} e^{-\lambda_i \Delta t} \left( \psi_{g'}(t_{n}) \Delta t - \frac{\psi_{g'}(t_{n+1})-\psi_{g'}(t_{n})}{\lambda_i + \omega_{g'}(\vec{r})} \right) \nonumber
+	- \sum_{g'=1}^{G} \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t \left(\lambda_i + \omega_{g'}(\vec{r})\right)} e^{-\lambda_i \Delta t} \left( \psi_{g'}(t_{n}) \Delta t - \frac{\psi_{g'}(t_{n+1})-\psi_{g'}(t_{n})}{\lambda_i + \omega_{g'}(\vec{r})} \right) \nonumber.
 	\end{eqnarray}
-	If we define
+	Defining factors
 	\begin{equation}
 	A_{g'} = \frac{\beta_i \nu\Sigma_f(\vec{r},t_{n+1})}{k_{crit} \Delta t \left(\lambda_i + \omega_{g'}(\vec{r})\right)}
 	\end{equation}
@@ -104,10 +104,10 @@
 	\begin{equation}
 	B_{g'} = \frac{\psi_{g'}(t_{n+1})-\psi_{g'}(t_{n})}{\lambda_i + \omega_{g'}(\vec{r})}
 	\end{equation}
-	we find a condensed form
+	leads to a condensed form of the precursor equations as
 	\begin{eqnarray}
 	C_i(\vec{r},t_{n+1}) =  C_i(\vec{r},t_{n}) e^{-\lambda_i \Delta t} +  \sum_{g'=1}^{G} A_{g'} \left( \left( \psi_{g'}(t_{n+1}) \Delta t - B_{g'} \right) e^{ \omega_{g'}(\vec{r}) \Delta t} - 
-	\left( \psi_{g'}(t_n) \Delta t - B_{g'} \right) e^{-\lambda_i \Delta t} \right) \nonumber
+	\left( \psi_{g'}(t_n) \Delta t - B_{g'} \right) e^{-\lambda_i \Delta t} \right) \nonumber.
 	\end{eqnarray}
 	However a more useful form is
 	\begin{eqnarray}
@@ -115,12 +115,12 @@
 	+ \sum_{g'=1}^{G} A_{g'} \psi_{g'}(t_{n+1}) \left( \left( \Delta t - \frac{1}{\lambda_i + \omega_{g'}(\vec{r})} \right) e^{\omega_{g'}(\vec{r}) \Delta t} + \frac{e^{-\lambda_i \Delta t}}{\lambda_i + \omega_{g'}(\vec{r})} \right) \nonumber \\
 	- \sum_{g'=1}^{G} A_{g'} \psi_{g'}(t_{n}) \left( \frac{-e^{\omega_{g'}(\vec{r}) \Delta t}}{\lambda_i + \omega_{g'}(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega_{g'}(\vec{r})} \right)e^{-\lambda_i \Delta t} \right) \nonumber
 	\end{eqnarray}
-	as we have split the contributions from $\psi_{g'}(t_{n+1})$ and $\psi_{g'}(t_{n})$. Returning to the neutron balance equation, we can make the fully implicit finite difference approximation as
+	as the contributions from $\psi_{g'}(t_{n+1})$ and $\psi_{g'}(t_{n})$ are separated. Returning to the neutron balance equation, the fully implicit finite difference approximation can be applied as
 	\begin{eqnarray}
 		 \frac{1}{v_g} \left(\frac{\psi_g(\vec{r},t_{n+1}) - \psi_g(\vec{r},t_{n})}{\Delta t} \right) + \frac{\omega_g(\vec{r})}{v_g} \psi_g(\vec{r},t_{n+1})  = \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t_{n+1}) \nonumber \\ - \Sigma_{a,g}(\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) - \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) \nonumber \\ + e^{-\omega_g(\vec{r}) \Delta t} \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) e^{\omega_{g'}(\vec{r}) \Delta t} \nonumber \\
 		+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} e^{-\omega_g(\vec{r}) \Delta t} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) e^{\omega_{g'}(\vec{r}) \Delta t} \nonumber \\ + e^{-\omega_g(\vec{r}) \Delta t} \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n+1}) \nonumber.
 	\end{eqnarray}
-	Inserting the definition for $C_i(\vec{r},t_{n+1})$ we find
+	Inserting the definition for $C_i(\vec{r},t_{n+1})$ into the balance equation,
 	\begin{eqnarray}
 	\left(\frac{\psi_g(\vec{r},t_{n+1}) - \psi_g(\vec{r},t_{n})}{\Delta t} \right) \frac{\omega_g(\vec{r})}{v_g}  = \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t_{n+1}) - \Sigma_{a,g}(\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) -  \nonumber \\ \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) + e^{-\omega_g(\vec{r}) \Delta t} \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) e^{\omega_{g'}(\vec{r}) \Delta t} \nonumber \\
 	+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} e^{-\omega_g(\vec{r}) \Delta t} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) e^{\omega_{g'}(\vec{r}) \Delta t} \nonumber \\ +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega_g(\vec{r})\right) \Delta t} \nonumber \\
@@ -136,7 +136,7 @@
 	+ \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i \sum_{g'=1}^{G} A_{g'} \psi_{g'}(t_{n+1}) \left( \Delta t - \frac{1}{\lambda_i + \omega_{g'}(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega_{g'}(\vec{r}) \right) \Delta t}}{\lambda_i + \omega_{g'}(\vec{r})} \right)
 	\nonumber.
 	\end{eqnarray}
-	Now assuming $\omega_{g'}(\vec{r}) = \omega_g(\vec{r}) = \omega(\vec{r})$ we find
+	Assuming $\omega_{g'}(\vec{r}) = \omega_g(\vec{r}) = \omega(\vec{r})$,
 	\begin{eqnarray}
 	\frac{1}{v_g} \left(\frac{\psi_g(\vec{r},t_{n+1}) - \psi_g(\vec{r},t_{n})}{\Delta t} \right) + \frac{\omega(\vec{r})}{v_g} \psi_g(\vec{r},t_{n+1})  = \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t_{n+1}) \nonumber \\ - \Sigma_{a,g}(\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) -   \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) + \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) \nonumber \\
 	+ \left[ 1- \beta \right] \frac{\chi_g^p}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1})  +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega(\vec{r})\right) \Delta t} \nonumber \\
@@ -144,30 +144,30 @@
 	+ \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i \sum_{g'=1}^{G} A_{g'} \psi_{g'}(t_{n+1}) \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right)
 	\nonumber.
 	\end{eqnarray}
-	If we define the total fission produced to be
+	The total fission production $R_F(t)$ is defined as
 	\begin{equation}
-	R_F(t) = \frac{1}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \psi_{g'}(\vec{r},t)
+	R_F(t) = \frac{1}{k_{crit}} \sum_{g'=1}^{G} \nu \Sigma_{f,g'}(\vec{r},t) \psi_{g'}(\vec{r},t),
 	\end{equation}
-	we can simplify further as	
+	the balance equation can be further reduced as
 	\begin{eqnarray}
 	\frac{1}{v_g} \left(\frac{\psi_g(\vec{r},t_{n+1}) - \psi_g(\vec{r},t_{n})}{\Delta t} \right) + \frac{\omega(\vec{r})}{v_g} \psi_g(\vec{r},t_{n+1})  = \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t_{n+1}) \nonumber \\ - \Sigma_{a,g}(\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) -   \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) + \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) \nonumber \\
 	+ R_F(t_{n+1}) \left(\left[ 1- \beta \right] \chi_g^p + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r})\right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber \\ +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega(\vec{r})\right) \Delta t} \nonumber \\
 	-  R_F(t_{n}) \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right)
 	\nonumber.
 	\end{eqnarray}
-	If we define $F$ as the steady-state fission matrix or operator, with $F_g(\vec{r})$ being the row corresponding to the group $g$ at position $\vec{r}$, we can re-write this as
+	Defining $F$ as the steady-state fission matrix or operator, with $F_g(\vec{r})$ being the row corresponding to the group $g$ at position $\vec{r}$, the balance equation simplifies to
 	\begin{eqnarray}
 	\frac{1}{v_g} \left(\frac{\psi_g(\vec{r},t_{n+1}) - \psi_g(\vec{r},t_{n})}{\Delta t} \right) + \frac{\omega(\vec{r})}{v_g} \psi_g(\vec{r},t_{n+1})  = \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t_{n+1}) - \Sigma_{a,g}(\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) -  \nonumber \\ \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) + \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) \nonumber \\
-	+ \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n+1})}{\chi_g^T k_{crit}}  \left(\left[ 1- \beta \right] \chi_g^p + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber \\ +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega(\vec{r})\right) \Delta t} \nonumber \\
-	-  \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n})}{\chi_g^T k_{crit}}  \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right)
-	\nonumber.
+	+ \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n+1})}{\chi_g^T k_{crit} \Delta x}  \left(\left[ 1- \beta \right] \chi_g^p + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber \\ +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega(\vec{r})\right) \Delta t} \nonumber \\
+	-  \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n})}{\chi_g^T k_{crit} \Delta x}  \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right)
+	\nonumber
 	\end{eqnarray}
-	where $\chi_g^T$ is the total fission emission spectrum. Now we re-write the equations yet again in the way that we would solve computationally:
+	where $\chi_g^T$ is the total fission emission spectrum. Now the equations are re-written yet again in the way that we would solve computationally:
 	\begin{eqnarray}
 	\frac{\psi_g(\vec{r},t_{n})}{v_g \Delta t} +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega(\vec{r})\right) \Delta t} \nonumber \\
-	-  \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n})}{\chi_g^T k_{crit}}  \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right) \nonumber \\
+	-  \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n})}{\chi_g^T k_{crit} \Delta x}  \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right) \nonumber \\
 	  = - \nabla D_g(\vec{r}) \nabla \psi_g(\vec{r},t_{n+1}) + \Sigma_{a,g}(\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) + \left(\frac{\psi_g(\vec{r},t_{n+1})}{v_g \Delta t} \right) \left( 1 + \omega(\vec{r}) \right) \nonumber \\ + \sum_{g'\neq g} \Sigma_{s}^{g\rightarrow g'} (\vec{r},t_{n+1}) \psi_g(\vec{r},t_{n+1}) - \sum_{g' \neq g} \Sigma_{s}^{g'\rightarrow g} (\vec{r},t_{n+1}) \psi_{g'}(\vec{r},t_{n+1}) \nonumber \\
-	- \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n+1})}{\chi_g^T k_{crit}} \left(\left[ 1- \beta \right] \chi_g^p + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber \\ 
+	- \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n+1})}{\chi_g^T k_{crit} \Delta x} \left(\left[ 1- \beta \right] \chi_g^p + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber \\ 
 	\nonumber.
 	\end{eqnarray}
 	
@@ -183,37 +183,20 @@
 	The elements of $S$ associated with group $g$ at position $\vec{r}$ are defined by
 	\begin{eqnarray}
 	S_g(\vec{r}) = 	\frac{\psi_g(\vec{r},t_{n})}{v_g \Delta t} +  \sum_{i=1}^{I} \chi_{i,g}^d \lambda_i C_i(\vec{r},t_{n}) e^{-\left(\lambda_i + \omega(\vec{r})\right) \Delta t} \nonumber \\
-	-  \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n})}{\chi_g^T k_{crit}} \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right).
+	-  \frac{F_g(\vec{r}) \psi_g(\vec{r},t_{n})}{\chi_g^T k_{crit} \Delta x} \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \frac{-1}{\lambda_i + \omega(\vec{r})} + \left(\Delta t + \frac{1}{\lambda_i + \omega(\vec{r})} \right)e^{-\left(\lambda_i + \omega(\vec{r}) \right) \Delta t} \right).
 	\end{eqnarray}
-	We can define the altered ``pseudo-fission'' matrix $\hat{F}$ for our time-dependent problem as
+    The altered ``pseudo-fission'' matrix $\hat{F}$ for our time-dependent problem is given as
 	\begin{eqnarray}
-	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\chi_g^T \Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber
+	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\chi_g^T \Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber.
 	\end{eqnarray}
-	We can calculate $\omega(\vec{r})$ during each time step as
+	During each time step $\omega(\vec{r})$ is calculated as
 	\begin{equation}
 	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n+1})}{\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})} \right)
 	\end{equation}
-	
-	***  If we take $\omega(\vec{r}) = 0$ we find
-	
-	\begin{eqnarray}
-	\hat{F}_g = F_g \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i}{\chi_g^T \Delta t} \left( \Delta t - \frac{1}{\lambda_i} + \frac{e^{- \lambda_i \Delta t}}{\lambda_i}\right) \right) \nonumber
-	\end{eqnarray}	
-	
-	*** If we approximate $e^{-\lambda_i \Delta t}$ as $1 / (1+\lambda_i \Delta t)$
-	\begin{eqnarray}
-	\hat{F}_g = F_g \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i}{\chi_g^T \lambda_i \Delta t} \left( \lambda_i \Delta t - 1 + \frac{1}{1+\lambda_i \Delta t}\right) \right) \nonumber
-	\end{eqnarray}	
-	
-	*** which simplifies as
-	\begin{eqnarray}
-	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T k_{crit}} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i}{\chi_g^T k_{crit} \lambda_i \Delta t} \frac{1}{1+\lambda_i \Delta t} \left( \left(\lambda_i \Delta t - 1 \right) \left(\lambda_i \Delta t + 1 \right) + 1 \right) \right) \nonumber \\
-	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T k_{crit}} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i}{\chi_g^T k_{crit} \lambda_i \Delta t} \frac{1}{1+\lambda_i \Delta t} \left( \left(\lambda_i \Delta t \right)^2 -1 + 1 \right) \right) \nonumber \\
-	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T k_{crit}} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i}{\chi_g^T k_{crit} \lambda_i \Delta t} \frac{1}{1+\lambda_i \Delta t} \left(\lambda_i \Delta t \right)^2  \right) \nonumber \\
-	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T k_{crit}} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i \Delta t}{\chi_g^T k_{crit} 
-	\left(1+\lambda_i \Delta t \right)} \right) \nonumber
-	\end{eqnarray}
-	
+	for the local frequency case. For the global case,
+	\begin{equation}
+	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\int_{V} d\vec{r} \, \sum_{g=1}^{G} \phi_g(\vec{r}, t_{n+1})}{\int_{V} d\vec{r} \,\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})} \right)
+	\end{equation}	
 	
 		
 \end{document}

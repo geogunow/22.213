@@ -834,6 +834,9 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
         }
     }
 
+    // boolean variable for synchronized mode
+    bool firstIter = true;
+
     // record power and profile
     rkResult.power.push_back(tot_fission);
     rkResult.powerProfile.push_back(ssResult.power);
@@ -895,7 +898,6 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
         if(modified[3])
             F = formFMatrix(newMesh, index);
         
-
         // create tansient fission matrix
         Sparse Fhat = formFhatMatrixFT(F, newMesh, rkParams, dt, kcrit, 
                 omega, index);
@@ -930,36 +932,6 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
         // record inner iterations
         rkResult.innerSteps.push_back(sum_inner_iters);
 
-        // calculate new neutron precursors
-        for(int n=0; n < mesh._N; n++)
-        {
-            // extract material
-            XSdata* mat = mesh._material[n];
-
-            // calculate for each delayed group
-            for(int i=0; i < rkParams.I; i++)
-            {
-                // load decay constant
-                double lambda_i = rkParams.lambda_i[i];
-
-                // calculate decayed precursors
-                precursors[n][i] = precursors[n][i] * exp(-lambda_i * dt);
-
-                // add production of precursors
-                for(int g=0; g < mesh._G; g++)
-                {
-                    double Ag = rkParams.beta_i[i] * mat->nuSigf[g] /
-                        (kcrit * dt * (lambda_i + omega[n]));
-                    double Bg = (psi[index(n,g)] - flux[index(n,g)]) /
-                        (lambda_i + omega[n]);
-
-                    precursors[n][i] += Ag * ( (psi[index(n,g)] * dt - Bg)
-                            * exp(omega[n] * dt) - (flux[index(n,g)] * dt - Bg)
-                            * exp(-lambda_i * dt) );
-                }
-            }
-        }
-
         // calculate old and new total fluxes and reassign fluxes
         std::vector<double> old_flux_total(mesh._N,0);
         std::vector<double> new_flux_total(mesh._N,0);
@@ -968,13 +940,13 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
             for(int g=0; g < mesh._G; g++)
             {
                 old_flux_total[n] += flux[index(n,g)];
-                flux[index(n,g)] = psi[index(n,g)] * exp(omega[n]*dt);
-                new_flux_total[n] += flux[index(n,g)];
+                psi[index(n,g)] *= exp(omega[n]*dt);
+                new_flux_total[n] += psi[index(n,g)];
             }
         }
 
         // update omega globally if requested
-        if(omegaMode == 1)
+        if(omegaMode == 1 or omegaMode == 3)
         {
             double sum_old_flux = 0, sum_new_flux = 0;
             for(int n=0; n < mesh._N; n++)
@@ -987,9 +959,49 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
         }
 
         // update omega locally if requested
-        else if(omegaMode == 2)
+        else if(omegaMode == 2 or omegaMode == 4)
             for(int n=0; n < mesh._N; n++)
                 omega[n] = log(new_flux_total[n] / old_flux_total[n]) / dt;
+
+        // copy new flux estimate if unsynchronized
+        if(omegaMode == 1 or omegaMode == 2
+                or (omegaMode > 2 && !firstIter) )
+        {
+            // copy flux
+            for(int n=0; n < mesh._N; n++)
+                for(int g=0; g < mesh._G; g++)
+                   flux[index(n,g)] = psi[index(n,g)];
+ 
+            // calculate new neutron precursors
+            for(int n=0; n < mesh._N; n++)
+            {
+                // extract material
+                XSdata* mat = mesh._material[n];
+
+                // calculate for each delayed group
+                for(int i=0; i < rkParams.I; i++)
+                {
+                    // load decay constant
+                    double lambda_i = rkParams.lambda_i[i];
+
+                    // calculate decayed precursors
+                    precursors[n][i] = precursors[n][i] * exp(-lambda_i * dt);
+
+                    // add production of precursors
+                    for(int g=0; g < mesh._G; g++)
+                    {
+                        double Ag = rkParams.beta_i[i] * mat->nuSigf[g] /
+                            (kcrit * dt * (lambda_i + omega[n]));
+                        double Bg = (psi[index(n,g)] - flux[index(n,g)]) /
+                            (lambda_i + omega[n]);
+
+                        precursors[n][i] += Ag * ( (psi[index(n,g)] * dt - Bg)
+                                * exp(omega[n] * dt) - (flux[index(n,g)] * dt - Bg)
+                                * exp(-lambda_i * dt) );
+                    }
+                }
+            }
+        }
 
         // calculate total power (assuming nu is constant)
         double total_power = 0;
@@ -997,9 +1009,20 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
         for(int n=0; n < mesh._N; n++)
             for(int g=0; g < mesh._G; g++)
                 total_power += power[index(n,g)];
-        
-        // add total power to power vector
-        rkResult.power.push_back(total_power);
+       
+        // roll back solution if synchronized mode requested
+        if(omegaMode > 2 and firstIter)
+        {
+            // roll back time step
+            t -= 1;
+            firstIter = false;
+        }
+        else
+        {
+            // add total power to power vector
+            rkResult.power.push_back(total_power);
+            firstIter = true;
+        }
         
         if( (t+2)%100 == 0 or (t+2) == timeSteps.size())
             std::cout << "Completed " << t+2 << "/" << timeSteps.size()

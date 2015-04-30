@@ -219,3 +219,19 @@ for tmax, trans in zip(time_scales, transients):
     plt.legend(['Global $\omega$','Local $\omega$'])
     plt.show()
 
+    # try unsynchronized (1) and synchronized (3) global frequencies
+    for typ in [1,3]:
+        
+        # solve transient
+        result = rk.solveTransientFT(trans, rkParams, typ)
+        P = np.array(result.getPower())
+
+        # plot normalized power
+        plt.plot(t, P/P[0])    
+
+    # label plot
+    plt.xlabel('Time (s)')
+    plt.ylabel('Normalized Power')
+    plt.legend(['Unsynchronized $\omega$', 'Synchronized $\omega$'])
+    plt.show()
+
