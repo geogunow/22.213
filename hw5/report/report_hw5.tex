@@ -189,14 +189,266 @@
 	\begin{eqnarray}
 	\hat{F}_g(\vec{r}) = F_g(\vec{r}) \times \left(\frac{\left[ 1- \beta \right] \chi_g^p}{\chi_g^T} + \sum_{i=1}^{I} \frac{\chi_{i,g}^d \beta_i \lambda_i}{\chi_g^T \Delta t \left( \lambda_i + \omega(\vec{r}) \right)} \left( \Delta t - \frac{1}{\lambda_i + \omega(\vec{r})} + \frac{e^{-\left( \lambda_i + \omega(\vec{r}) \right) \Delta t}}{\lambda_i + \omega(\vec{r})}\right) \right) \nonumber.
 	\end{eqnarray}
-	During each time step $\omega(\vec{r})$ is calculated as
+	During each time step $\omega(\vec{r})$ could be calculated as
 	\begin{equation}
 	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n+1})}{\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})} \right)
 	\end{equation}
 	for the local frequency case. For the global case,
 	\begin{equation}
-	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\int_{V} d\vec{r} \, \sum_{g=1}^{G} \phi_g(\vec{r}, t_{n+1})}{\int_{V} d\vec{r} \,\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})} \right)
+	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\int_{V} d\vec{r} \, \sum_{g=1}^{G} \phi_g(\vec{r}, t_{n+1})}{\int_{V} d\vec{r} \,\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})} \right).
 	\end{equation}	
+	These equations define the \textit{synchronized} form of the frequency transform as $\omega(\vec{r})^{n+1}$ is synchronized with the time step over which the updated flux is calculated. However, going into the time step, we need to know the value of $\omega(\vec{r})^{n+1}$. In this form, $\omega(\vec{r})^{n+1}$ is dependent on the calculated solution $\phi_g(\vec{r}, t_{n+1})$. Therefore, this adds a layer of complexity in which an iterative process should be conducted to find both $\omega(\vec{r})^{n+1}$ and $\phi_g(\vec{r}, t_{n+1})$ for the new time step. 
 	
+	To eliminate this complexity, $\omega(\vec{r})^{n+1}$ could be calculated using the previous time step forming the \textit{unsynchronized} form of the frequency transform as
+	\begin{equation}
+	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\int_{V} d\vec{r} \, \sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})}{\int_{V} d\vec{r} \,\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n-1})} \right).
+	\end{equation}
+	for the local frequency case and
+	\begin{equation}
+	\omega(\vec{r})^{n+1} = \frac{1}{\Delta t} \ln \left(\frac{\int_{V} d\vec{r} \, \sum_{g=1}^{G} \phi_g(\vec{r}, t_{n})}{\int_{V} d\vec{r} \,\sum_{g=1}^{G} \phi_g(\vec{r}, t_{n-1})} \right)
+	\end{equation}	
+	for the global frequency case.
+	
+	\paragraph{Part A: Convergence of the Frequency Transform Method}
+	In this part, the convergence of the frequency transform method is analyzed and compared with the fully implicit method used in previous homeworks.
+	
+	We analyze the performance on two benchmarks. The first is a delayed critical rod withdrawal where a central control rod of static reactivity worth 0.37\$ is withdrawn uniformly over a two second interval and then after six seconds is uniformly inserted over a two second interval. The power profile produced from both the frequency transform method and the fully implicit method are presented in Fig.~\ref{fig::power_1} for multiple convergence criteria and multiple time step sizes.
+	
+	From the power profiles, we see that the frequency transform method performs far better than the fully implicit method, especially at large time steps and loose convergence criteria. At the coarsest convergence criteria and time step size displayed in Fig.~\ref{fig::power_1_1_ft}, we see that the frequency transform method produces a power profile with large oscillations. However, this power profile is much better than the analogous fully implicit power profile displayed in Fig.~\ref{fig::power_1_1_fi} which fails to capture any reasonable shape of the transient. The fully implicit method only starts to produce a reasonable shape under the loose convergence when $\Delta t = 10^{-3}$ seconds. Alternatively, the frequency transform method starts to produce a shape very close to the finest time step when $\Delta t = 0.01$. At the finest time step, both the frequency transform and fully implicit method both converge to similar results for convergence criteria. When the convergence criteria is refined, the frequency transform performs very well at even the coarsest time steps, as displayed in Fig.~\ref{fig::power_1_2_ft} and Fig.~\ref{fig::power_1_3_ft}. However, the same does not occur for the fully implicit method in which the finest time step is significantly different from the coarse time steps as shown in Fig.~\ref{fig::power_1_2_fi} and Fig.~\ref{fig::power_1_3_fi}.
+	
+	The second benchmark is a super prompt critical withdrawal followed by a scam. In this transient, a central control rod of static reactivity worth of 1.24\$ is withdrawn uniformly over a 0.1 second interval and then after 0.3 seconds is uniformly inserted over a one second interval. Again, the transient is conducted under the same set of convergence and time step criteria. The resulting power profiles for this transient are shown in Fig.~\ref{fig::power_2}.
+	
+	Again, we see the advantage of the frequency transform method over the fully implicit method. For the loosest convergence criteria, both the frequency transform and the fully implicit methods have difficulty producing a reliable solution. For the frequency transform method, only the finest time step of $10^{-4}$ seconds produces a reasonable result, as seen in Fig.~\ref{fig::power_2_1_ft}. At a time step of $10^{-3}$, the profile starts to look reasonable but there are significant oscillations in the solution. For the fully implicit case under the loose convergence criteria, \textbf{none} of the solutions presented are reasonable. This might be expected as it is very difficult to converge such a rapid transient with the fully implicit method. On the other hand, the frequency transform benefits greatly as it assumes an exponential behavior between time steps, allowing it to follow rapid transients much better.
+	
+	For the power profiles under tighter convergence criteria for the frequency transform method all produce reasonable shapes and magnitudes as shown in Fig.~\ref{fig::power_2_2_ft} and Fig.~\ref{fig::power_2_3_ft}, but the finest time step is needed to accurately converge the peak and final power. For the fully implicit method under tighter convergence, a fine time step is needed to come anywhere close to the converged solution. We see that until the time step is as fine as $10^{-3}$, the peak and final power is off by orders of magnitude as seen in Fig.~\ref{fig::power_2_2_fi} and Fig.~\ref{fig::power_2_3_fi}.
+	
+		\begin{figure}[ht]
+			\centering
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case1_conv1.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-2}$}
+				\label{fig::power_1_1_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case1_conv1_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-2}$}
+				\label{fig::power_1_1_fi}
+			\end{subfigure}
+
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case1_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-4}$}
+				\label{fig::power_1_2_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case1_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-4}$}
+				\label{fig::power_1_2_fi}
+			\end{subfigure}
+
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case1_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-6}$}
+				\label{fig::power_1_3_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case1_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-6}$}
+				\label{fig::power_1_3_fi}
+			\end{subfigure}
+			\caption{Frequency transform and fully implicit solutions for delayed critical rod withdrawal and insertion with various convergence criteria $\epsilon$ and various time step sizes $\Delta t$.}
+			\label{fig::power_1}
+		\end{figure}
+
+		\begin{figure}[ht]
+			\centering
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case2_conv1.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-2}$}
+				\label{fig::power_2_1_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case2_conv1_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-2}$}
+				\label{fig::power_2_1_fi}
+			\end{subfigure}
+			
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case2_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-4}$}
+				\label{fig::power_2_2_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case2_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-4}$}
+				\label{fig::power_2_2_fi}
+			\end{subfigure}
+			
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case2_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-6}$}
+				\label{fig::power_2_3_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/power_case2_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-6}$}
+				\label{fig::power_2_3_fi}
+			\end{subfigure}
+			\caption{Frequency transform and fully implicit solutions for prompt critical rod withdrawal and scram with various convergence criteria $\epsilon$ and various time step sizes $\Delta t$.}
+			\label{fig::power_2}
+		\end{figure}
+
+\clearpage
+Next we look at the iteration counts as a function of time for both transients. Again, we start with the first transient, the delayed critical bank withdrawal. The results are shown in Fig.~\ref{fig::iter_1}. For loose convergence criteria of $10^{-2}$, both the frequency transform and the fully implicit methods converge in one iteration for all time steps as seen if Fig.~\ref{fig::iter_1_1_ft} and Fig.~\ref{fig::iter_1_1_fi}. When the convergence criteria is tightened, we see interesting results shown in Figs.~\ref{fig::iter_1_2_ft} --~\ref{fig::iter_1_3_fi}. 
+
+Both the frequency transform and fully implicit methods require high iteration counts during control rod movement when the material properties are changing. However, the frequency transform method only requires a few iterations when material properties are constant, such as after the control rod is withdrawn and after the control rod is re-inserted. The fully implicit method still requires a large number of iterations during these periods when the material properties are constant but the flux is still rapidly changing. In fact, the number of iterations seems to follow the magnitude of the change in flux. When the flux is exponentially decreasing after the re-insertion of the rod, the number of iterations required also decreases exponentially. 
+
+The reason the frequency transform is able to solve the transient during these periods of constant material properties but exponential change in flux and power amplitude is the inherent assumption that the flux should change exponentially between time steps that is present in the derivation of the frequency transform.
+
+For the super prompt critical rod ejection transient, similar results are observed. These are shown in Fig.~\ref{fig::iter_2}. Once again, for loose convergence criteria, very few iterations are required for both the frequency transform and the fully implicit methods. During the rod ejection and scram, a very large number of iterations are needed for both methods. However, during periods when the material properties are constant and flux is changing exponentially, the frequency transform method requires very few iterations but the fully implicit method still requires a significant number of iterations.
+% iteration counts
+		\begin{figure}[ht]
+			\centering
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case1_conv1.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-2}$}
+				\label{fig::iter_1_1_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case1_conv1_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-2}$}
+				\label{fig::iter_1_1_fi}
+			\end{subfigure}
+			
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case1_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-4}$}
+				\label{fig::iter_1_2_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case1_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-4}$}
+				\label{fig::iter_1_2_fi}
+			\end{subfigure}
+			
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case1_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-6}$}
+				\label{fig::iter_1_3_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case1_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-6}$}
+				\label{fig::iter_1_3_fi}
+			\end{subfigure}
+			\caption{Iteration count as a function of time for frequency transform and fully implicit solutions for delayed critical rod withdrawal and insertion with various convergence criteria $\epsilon$ and various time step sizes $\Delta t$.}
+			\label{fig::iter_1}
+		\end{figure}
 		
+		\begin{figure}[ht]
+			\centering
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case2_conv1.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-2}$}
+				\label{fig::iter_2_1_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case2_conv1_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-2}$}
+				\label{fig::iter_2_1_fi}
+			\end{subfigure}
+			
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case2_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-4}$}
+				\label{fig::iter_2_2_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case2_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-4}$}
+				\label{fig::iter_2_2_fi}
+			\end{subfigure}
+			
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case2_conv2.png}
+				\caption{Frequency Transform, $\epsilon = 10^{-6}$}
+				\label{fig::iter_2_3_ft}
+			\end{subfigure}%
+			\begin{subfigure}{.5\textwidth}
+				\centering
+				\includegraphics[width=.95\linewidth]{figs/iter_case2_conv2_omega0.png}
+				\caption{Fully Implicit, $\epsilon = 10^{-6}$}
+				\label{fig::iter_2_3_fi}
+			\end{subfigure}
+			\caption{Iteration count as a function of time for frequency transform and fully implicit solutions for super prompt critical rod withdrawal and scram with various convergence criteria $\epsilon$ and various time step sizes $\Delta t$.}
+			\label{fig::iter_2}
+		\end{figure}
+	\clearpage
+	\paragraph{Part B: Effect of $\omega$ Calculation Schemes}
+	In this part, the effect of how $\omega(\vec{r})$ is calculated during each iteration is analyzed. First, the effect of global and local $\omega(\vec{r})$ estimates are compared. The resulting power profiles are plotted for both transients mentioned in \textbf{Part A} in Fig.~\ref{fig::global_local}.
+	\begin{figure}[ht]
+		\centering
+		\begin{subfigure}{.49\textwidth}
+			\centering
+			\includegraphics[width=.95\linewidth]{figs/global_local_case1.png}
+			\caption{Delayed Critical Bank Withdrawal}
+			\label{fig::global_local_case1}
+		\end{subfigure}
+		\begin{subfigure}{.49\textwidth}
+			\centering
+			\includegraphics[width=.95\linewidth]{figs/global_local_case2.png}
+			\caption{Prompt Critical Rod Ejection}
+			\label{fig::global_local_case2}
+		\end{subfigure}
+		\caption{Frequency transform solutions for both the delayed critical bank withdrawal transient and the super prompt critical rod ejection with scram using both global and local unsynchronized frequencies at a convergence criteria  of $10^{-6}$ and a time step size of $10^{-2}$.}
+		\label{fig::global_local}
+	\end{figure}
+	
+	Notice that for the delayed critical bank withdrawal transient, resulting power profiles from using both global and local frequencies align very well. Since the transient is so slow, the estimate of $\omega$ is not as important as the calculated value should be very small. However, for the prompt critical rod ejection in which the flux changes very rapidly, significant deviation between the power profiles is observed. This is likely due to the flux changing rapidly in the center, near the control rod ejection, but far less rapid away from the control rod. 
+
+	Next, for the global frequency case, synchronized and unsynchronized frequency transform calculations are compared. In this implementation, we conduct only a single re-calculation of $\omega$ for the synchronized version. A calculation of the flux is performed using the regular unsynchronized frequency. The appropriate value for $\omega$ is then re-calculated using the calculated flux. Then the flux is re-calculated using the new estimate of $\omega$ and the time step is then progressed. This is of course an approximation since $\omega$ should really be iteratively converged. 
+	
+	The results are shown in Fig.~\ref{fig::sync}. Again, for the slowly changing delayed critical bank withdrawal transient there is little deviation between the synchronized and unsynchronized. However, for the rapidly changing super prompt critical rod ejection, significant deviation is once again observed between the unsynchronized and synchronized power profiles, especially at the power peak of the transient.
+	
+
+	\begin{figure}[ht]
+		\centering
+		\begin{subfigure}{.49\textwidth}
+			\centering
+			\includegraphics[width=.95\linewidth]{figs/sync_case1.png}
+			\caption{Delayed Critical Bank Withdrawal}
+			\label{fig::sync_case1}
+		\end{subfigure}
+		\begin{subfigure}{.49\textwidth}
+			\centering
+			\includegraphics[width=.95\linewidth]{figs/sync_case2.png}
+			\caption{Super Prompt Critical Rod Ejection}
+			\label{fig::sync_case2}
+		\end{subfigure}
+		\caption{Frequency transform solutions for both the delayed critical bank withdrawal transient and the super prompt critical rod ejection with scram using both synchronized and unsynchronized global frequencies at a convergence criteria  of $10^{-6}$ and a time step size of $10^{-2}$.}
+		\label{fig::sync}
+	\end{figure}
 \end{document}
