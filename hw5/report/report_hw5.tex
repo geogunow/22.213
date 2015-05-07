@@ -1,6 +1,7 @@
 \documentclass[12pt]{report}
 \usepackage{scribe,graphicx,graphics}
 \usepackage{subcaption}
+\usepackage{hyperref}
 
 
 \course{MIT 22.213} 	
@@ -19,7 +20,7 @@
 	\maketitle
 	
 	\paragraph{Intro: Code Design}
-	In this problem set, I extend the \texttt{rksolver} library to include a frequency transformed transient solver. This library is written in C++ for speed and includes a SWIG wrapper for Python. This allows for easy data entry and manipulation in Python while still being able to take advantage of the speed of C++.
+	In this problem set, I extend the \texttt{rksolver} library to include a frequency transformed transient solver. This library is written in C++ for speed and includes a SWIG wrapper for Python. This allows for easy data entry and manipulation in Python while still being able to take advantage of the speed of C++. The code is open source and available on github at \url{https://github.com/geogunow/22.213} within the \texttt{rksolver} directory.
 	
 	\paragraph{Derivation of Frequency Transform Equations}
 	First, the frequency transform equations are derived which form the basis of the updates to \texttt{rksolver}. Starting from the multi-group group diffusion equation,

@@ -80,6 +80,9 @@ class configuration:
 
   sources['gcc'] = ['rksolver/rksolver_wrap.cpp',
                     'src/diffSolver.cpp',
+                    'src/transientSolver.cpp',
+                    'src/pkeSolver.cpp',
+                    'src/ftSolver.cpp',
                     'src/Sparse.cpp',
                     'src/XSdata.cpp',
                     'src/Mesh.cpp',

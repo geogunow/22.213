@@ -4,6 +4,9 @@
 %{
   #define SWIG_FILE_WITH_INIT
   #include "../src/diffSolver.h"
+  #include "../src/transientSolver.h"
+  #include "../src/pkeSolver.h"
+  #include "../src/ftSolver.h"
   #include "../src/utils.h"
   #include "../src/Mesh.h"
   #include "../src/XSdata.h"
@@ -157,6 +160,9 @@ namespace std {
 
 %include <exception.i>
 %include ../src/diffSolver.h
+%include ../src/transientSolver.h
+%include ../src/pkeSolver.h
+%include ../src/ftSolver.h
 %include ../src/Mesh.h
 %include ../src/XSdata.h
 %include ../src/utils.h
