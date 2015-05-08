@@ -20,6 +20,10 @@ program = diffSolver
 source = \
 main.cpp \
 diffSolver.cpp \
+transientSolver.cpp \
+pkeSolver.cpp \
+ftSolver.cpp \
+bdSolver.cpp \
 Sparse.cpp \
 Mesh.cpp \
 XSdata.cpp \
@@ -59,7 +63,7 @@ clean:
 	rm -rf $(program) $(obj)
 
 edit:
-	vim -p $(source) *.h
+	vim -p $(source)
 
 run:
 	./$(program)
