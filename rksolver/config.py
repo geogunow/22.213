@@ -83,6 +83,8 @@ class configuration:
                     'src/transientSolver.cpp',
                     'src/pkeSolver.cpp',
                     'src/ftSolver.cpp',
+                    'src/bdSolver.cpp',
+                    'src/cnSolver.cpp',
                     'src/Sparse.cpp',
                     'src/XSdata.cpp',
                     'src/Mesh.cpp',

@@ -4,7 +4,29 @@
 rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
 {
     //TODO: error checking
-    
+     
+    // get vectors
+    std::vector<Mesh> meshVector = trans.meshVector;
+    std::vector<double> timeVector = trans.timeVector;
+    std::vector<double> timeSteps = trans.timeSteps;
+
+    // set transient variables
+    double tol = trans.tolerance;
+    int maxiters = pow(10,6);
+    double outer_tol = tol;
+    double inner_tol = tol;
+    int inner_solver = 2;
+    int sum_inner_iters = 0;
+   
+    // get first mesh to solve steady state
+    Mesh mesh = meshVector[0];
+
+    // initialie matrices
+    Indexer index = Indexer(mesh._N, mesh._G);
+
+    // set N to the number of nodes
+    int N = mesh._nodes;
+ 
     // intilaize solution vecotrs
     std::vector<std::vector<std::vector<double> > > precursors;
     std::vector<std::vector<double> > flux;
@@ -29,19 +51,6 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
         std::vector<double> temp(rkParams.I, 0);
         C_sum.push_back(temp);
     }
-    
-    // get vectors
-    std::vector<Mesh> meshVector = trans.meshVector;
-    std::vector<double> timeVector = trans.timeVector;
-    std::vector<double> timeSteps = trans.timeSteps;
-
-    // set transient variables
-    double tol = trans.tolerance;
-    int maxiters = pow(10,6);
-    double outer_tol = tol;
-    double inner_tol = tol;
-    int inner_solver = 1;
-    int sum_inner_iters = 0;
 
     // create transient reactor kinetics soution object
     rkSolution rkResult = rkSolution();
@@ -51,62 +60,66 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
     double omega;
     switch(BD){
         case 1:
+        {
             double div = 1;
             double alpha_vals[] = {div, -1};
             for(int b=0; b < BD+1; b++)
                 alpha[b] = alpha_vals[b] / div;
             omega = 1;
             break;
+        }
         case 2:
+        {
             double div = 3;
             double alpha_vals[] = {div, -4, 1};
             for(int b=0; b < BD+1; b++)
                 alpha[b] = alpha_vals[b] / div;
             omega = 2.0 / div;
             break;
+        }
         case 3:
+        {
             double div = 11;
             double alpha_vals[] = {div, -18, 9, -2};
             for(int b=0; b < BD+1; b++)
                 alpha[b] = alpha_vals[b] / div;
             omega = 6.0 / div;
             break;
+        }
         case 4:
+        {
             double div = 25;
             double alpha_vals[] = {div, -48, 36, -16, 3};
             for(int b=0; b < BD+1; b++)
                 alpha[b] = alpha_vals[b] / div;
             omega = 12.0 / div;
             break;
+        }
         case 5:
+        {
             double div = 137;
             double alpha_vals[] = {div, -300, 300, -200, 75, -12};
             for(int b=0; b < BD+1; b++)
                 alpha[b] = alpha_vals[b] / div;
             omega = 60.0 / div;
             break;
+        }
         case 6:
+        {
             double div = 147;
             double alpha_vals[] = {div, -360, 450, -400, 225, -72, 10};
             for(int b=0; b < BD+1; b++)
                 alpha[b] = alpha_vals[b] / div;
             omega = 60.0 / div;
             break;
+        }
         default:
             std::cout << "Error: BD order not supported" << endl;
             std::cout << "Please choose an order between 1 and 6" << endl;
-            return rkSolution;
+            return rkResult;
     }
 
-    // get first mesh to solve steady state
-    Mesh mesh = meshVector[0];
-
-    // initialie matrices
-    Indexer index = Indexer(mesh._N, mesh._G);
-
-    // set N to the number of nodes
-    int N = mesh._nodes;
-    
+   
     // form steady state matrices
     Sparse F = formFMatrix(mesh, index);
     Sparse SigA = formSigAMatrix(mesh, index);
@@ -208,7 +221,6 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
         if(modified[3])
             F = formFMatrix(newMesh, index);
         
-
         // create tansient fission matrix
         Sparse Fhat = formFhatMatrixBD(newMesh, rkParams, dt, kcrit, index,
                 alpha[0], omega);
@@ -267,12 +279,12 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
         }
                 
         // create S vector
-        std::vector<double> S = formSVector(mesh, rkParams, F_sum, C_sum, dt, 
+        std::vector<double> S = formSVectorBD(mesh, rkParams, F_sum, C_sum, dt,
                 kcrit, index, alpha[0], omega);
         
         // copy newMesh to mesh
         mesh = newMesh;
-
+        
         // copy flux and precursors to back vectors
         for(int b=BD-1; b > 0; b--)
         {
@@ -281,7 +293,7 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
         }
 
         // solve flux
-        flux[0] = T.gaussSeidel(S, flux[1], tol, maxiters, sum_inner_iters);
+        flux[0] = T.optimalSOR(S, flux[0], tol, maxiters, sum_inner_iters);
 
         // tally total power (assuming nu is constant)
         double total_power = 0;
@@ -295,16 +307,17 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
             // calculate total fission production
             double fission = 0;
             for(int g=0; g < mesh._G; g++)
-                fission += mat->nuSigf[g] * flux[index(n,g)];
+                fission += mat->nuSigf[g] * flux[0][index(n,g)];
 
             total_power += fission;
 
             // calculate precursors for each group in I
             for(int i=0; i < rkParams.I; i++)
             {
-                precursors[0][n][i] = (precursors[0][n][i] + 
-                    rkParams.beta_i[i] * dt * fission / kcrit) /
-                    (1 + rkParams.lambda_i[i] * dt);
+                double lambda_i = rkParams.lambda_i[i];
+                double beta_i = rkParams.beta_i[i];
+                precursors[0][n][i] = (beta_i * omega * dt * fission / kcrit 
+                        - C_sum[n][i]) / (alpha[0] + lambda_i * omega * dt);
             }
         }
 
@@ -385,7 +398,7 @@ std::vector<double> formSVectorBD(Mesh mesh, RKdata rkParams,
         double precursor = 0;
         for(int i=0; i < rkParams.I; i++)
         {
-            double lambda_i = rkParams.lambda_i[i]
+            double lambda_i = rkParams.lambda_i[i];
             precursor += lambda_i * C_sum[n][i] 
                 / (alpha + lambda_i * omega * dt);
         }

@@ -7,6 +7,8 @@
   #include "../src/transientSolver.h"
   #include "../src/pkeSolver.h"
   #include "../src/ftSolver.h"
+  #include "../src/bdSolver.h"
+  #include "../src/cnSolver.h"
   #include "../src/utils.h"
   #include "../src/Mesh.h"
   #include "../src/XSdata.h"
@@ -163,6 +165,8 @@ namespace std {
 %include ../src/transientSolver.h
 %include ../src/pkeSolver.h
 %include ../src/ftSolver.h
+%include ../src/bdSolver.h
+%include ../src/cnSolver.h
 %include ../src/Mesh.h
 %include ../src/XSdata.h
 %include ../src/utils.h

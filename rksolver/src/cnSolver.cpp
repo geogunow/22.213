@@ -1,7 +1,7 @@
-#include"transientSolver.h"
+#include"cnSolver.h"
 
 //TODO: Description
-rkSolution solveTransient(Transient trans, RKdata rkParams)
+rkSolution solveTransientCN(Transient trans, RKdata rkParams)
 {
     // get vectors
     std::vector<Mesh> meshVector = trans.meshVector;
@@ -25,7 +25,7 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
     Mesh mesh = meshVector[0];
 
     // initialize matrices
-    Indexer index = Indexer(mesh._N,mesh._G);
+    Indexer index = Indexer(mesh._N, mesh._G);
 
     // set N to the number of nodes
     int N = mesh._nodes;
@@ -56,25 +56,31 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
     // initialize first time step of flux
     flux = ssResult.flux;
 
+    // calculate flux neutron balance ( (A-Fhat) * phi )
+    double dt = timeSteps[1] - timeSteps[0];
+    Sparse Fhat = formFhatMatrixCN(mesh, rkParams, dt, kcrit, index);
+    std::vector<double> fluxNB = (A - Fhat) * flux;
+
     // total fission tally
     double tot_fission = 0;
     
     // calculate intial precursor population for each cell
+    std::vector<double> fission(mesh._N, 0);
     for(int n=0; n < mesh._N; n++)
     {
         // calculate fission production in the cell
-        double fp = 0;
         for(int g=0; g < mesh._G; g++)
-            fp += ssResult.flux[index(n,g)] * mesh._material[n]->nuSigf[g]; 
+            fission[n] += ssResult.flux[index(n,g)] * 
+                mesh._material[n]->nuSigf[g]; 
 
         // add to total fission tally
-        tot_fission += fp;
+        tot_fission += fission[n];
 
         // calculate initial precursor population
         for(int i=0; i < rkParams.I; i++)
         {
             if( rkParams.lambda_i[i] != 0 )
-                precursors[n][i] = rkParams.beta_i[i] * fp
+                precursors[n][i] = rkParams.beta_i[i] * fission[n]
                     / ( rkParams.lambda_i[i] * kcrit );
         }
     }
@@ -88,7 +94,7 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
     {
         // get current time step
         double time = timeSteps[t+1];
-        double dt = timeSteps[t+1] - timeSteps[t];
+        dt = timeSteps[t+1] - timeSteps[t];
 
         // initialize new mesh
         Mesh newMesh = Mesh();
@@ -142,32 +148,36 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
         
 
         // create tansient fission matrix
-        Sparse Fhat = formFhatMatrix(newMesh, rkParams, dt, kcrit, index);
+        Fhat = formFhatMatrixCN(newMesh, rkParams, dt, kcrit, index);
 
-        // create T = (A - F) matrix
+        // create T = (A - Fhat) matrix
         Sparse T = Dhat + SigA + SigS - Fhat;
+        Sparse LHS = T.copy(); 
 
         // add time absorption term on diagonal
         for(int g=0; g < mesh._G; g++)
         {
-            double time_abs = 1 / (rkParams.v[g] * dt);
+            double time_abs = 2 / (rkParams.v[g] * dt);
             for(int n=0; n < mesh._N; n++)
             {
                 double val = mesh._delta[n] * time_abs + 
-                    T( index(n,g), index(n,g) );
-                T.setVal( index(n,g), index(n,g), val );
+                    LHS( index(n,g), index(n,g) );
+                LHS.setVal( index(n,g), index(n,g), val );
             }
         }
         
         // create S vector
-        std::vector<double> S = formSVector(mesh, rkParams, flux, 
+        std::vector<double> S = formSVectorCN(mesh, rkParams, flux, fluxNB,
                 precursors, dt, kcrit, index);
+
+        // solve flux
+        flux = LHS.optimalSOR(S, flux, tol, maxiters, sum_inner_iters);
         
         // copy newMesh to mesh
         mesh = newMesh;
-
-        // solve flux
-        flux = T.optimalSOR(S, flux, tol, maxiters, sum_inner_iters);
+        
+        // get new "neutron balance" vector
+        fluxNB = T * flux;
 
         // tally total power (assuming nu is constant)
         double total_power = 0;
@@ -178,20 +188,24 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
             // extract material
             XSdata* mat = mesh._material[n];
 
-            // calculate total fission production
-            double fission = 0;
+            // calcualte new total fission production
+            double new_fission = 0;
             for(int g=0; g < mesh._G; g++)
-                fission += mat->nuSigf[g] * flux[index(n,g)];
+                new_fission += mat->nuSigf[g] * flux[index(n,g)];
 
-            total_power += fission;
+            total_power += new_fission;
 
             // calculate precursors for each group in I
             for(int i=0; i < rkParams.I; i++)
             {
-                precursors[n][i] = (precursors[n][i] + 
-                    rkParams.beta_i[i] * dt * fission / kcrit) /
-                    (1 + rkParams.lambda_i[i] * dt);
+                precursors[n][i] = (2 * precursors[n][i] + 
+                    rkParams.beta_i[i] * dt * (new_fission + fission[n]) 
+                    / kcrit - rkParams.lambda_i[i] * dt * precursors[n][i])
+                    / (2 + rkParams.lambda_i[i] * dt);
             }
+
+            // update fission production
+            fission[n] = new_fission;
         }
 
         // add total power to power vector
@@ -205,7 +219,7 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
 }
 
 // form Fhat transient matrix
-Sparse formFhatMatrix(Mesh mesh, RKdata rkParams, double dt, double kcrit, 
+Sparse formFhatMatrixCN(Mesh mesh, RKdata rkParams, double dt, double kcrit, 
         Indexer index)
 {
     // extract dimensions
@@ -231,7 +245,7 @@ Sparse formFhatMatrix(Mesh mesh, RKdata rkParams, double dt, double kcrit,
                 for(int i=0; i<rkParams.I; i++)
                 {
                     delayed += rkParams.beta_i[i] * rkParams.lambda_i[i] * dt
-                        / ( (1 + rkParams.lambda_i[i] * dt) * kcrit );
+                        / ( (2 + rkParams.lambda_i[i] * dt) * kcrit );
                 }
                 
                 double fission = (mat->chi[g] * prompt + 
@@ -247,9 +261,10 @@ Sparse formFhatMatrix(Mesh mesh, RKdata rkParams, double dt, double kcrit,
 }
 
 // form S transient vector
-std::vector<double> formSVector(Mesh mesh, RKdata rkParams, 
-        std::vector<double> phi, std::vector<std::vector<double> > C, 
-        double dt, double kcrit, Indexer index)
+std::vector<double> formSVectorCN(Mesh mesh, RKdata rkParams, 
+        std::vector<double> phi, std::vector<double> phi_NB,
+        std::vector<std::vector<double> > C, double dt, double kcrit, 
+        Indexer index)
 {
     // extract dimensions
     int N = index._N;
@@ -269,68 +284,15 @@ std::vector<double> formSVector(Mesh mesh, RKdata rkParams,
         for(int i=0; i < rkParams.I; i++)
         {
             precursor += rkParams.lambda_i[i] * C[n][i] 
-                / (1 + rkParams.lambda_i[i] * dt);
+                / (2 + rkParams.lambda_i[i] * dt);
         }
 
         for(int g=0; g<G; g++)
         {
-            S[index(n,g)] = phi[index(n,g)] * dx / (rkParams.v[g] * dt)
-                    + rkParams.chi_d[g] * precursor * dx;
+            S[index(n,g)] = 2 * phi[index(n,g)] * dx / (rkParams.v[g] * dt)
+                    + 4 * rkParams.chi_d[g] * precursor * dx 
+                    - phi_NB[index(n,g)] * dx;
         }
     }
     return S;
-}
-
-// sets the mesh and time steps for the transient
-Transient::Transient()
-{
-    // set length
-    n_pts = 0;
-    set = false;
-    tolerance = pow(10,-6);
-}
-
-// destructor for transient
-Transient::~Transient() { }
-
-// set interpolation times
-void Transient::setInterpTimes(double * timeArray, int n_steps)
-{
-    timeVector.clear();
-    n_pts = n_steps;
-    for(int m=0; m < n_steps; m++)
-        timeVector.push_back(timeArray[m]);
-    return;
-}
-// set calculation times
-void Transient::setCalcTimes(double * timeArray, int n_steps)
-{
-    timeSteps.clear();
-    for(int m=0; m < n_steps; m++)
-        timeSteps.push_back(timeArray[m]);
-    return;
-}
-
-// set mesh
-void Transient::setMeshVector(Mesh ** meshArray, int n_interp)
-{
-    if(n_interp != n_pts)
-    {
-        std::cout << "Error: number of mesh does not equal number of "
-            << "interpolation times!" << endl;
-        return;
-    }
-    meshVector.clear();
-    for(int m=0; m < n_interp; m++)
-        meshVector.push_back(*meshArray[m]);
-    
-    set = true;
-    return;
-}
-
-// set tolerance
-void Transient::setTolerance(double tol)
-{
-    tolerance = tol;
-    return;
 }
