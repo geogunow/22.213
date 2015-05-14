@@ -3,13 +3,8 @@
 #===============================================================================
 
 COMPILER    = gnu
-MPI         = no
-OPENMP      = no
-OPTIMIZE    = no
 DEBUG       = no
-PROFILE     = no
-PAPI        = no
-BENCHMARK   = no
+PROFILE     = yes
 
 #===============================================================================
 # Program name & source code list
@@ -24,6 +19,7 @@ transientSolver.cpp \
 pkeSolver.cpp \
 ftSolver.cpp \
 bdSolver.cpp \
+cnSolver.cpp \
 Sparse.cpp \
 Mesh.cpp \
 XSdata.cpp \
@@ -54,7 +50,7 @@ endif
 #===============================================================================
 
 $(program): $(obj)
-	$(CC) $(obj) -o $@
+	$(CC) $(CFLAGS) $(obj) -o $@
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@

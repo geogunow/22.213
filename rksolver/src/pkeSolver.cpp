@@ -201,7 +201,7 @@ rkSolution solvePKE(Transient trans, RKdata rkParams, int shape_step,
         {
             double time_step1 = timeSteps[t+1] - timeSteps[t];
             double time_step2 = timeSteps[t] - timeSteps[t-1];
-            time_step_change = abs(time_step1 - time_step2)/time_step2;
+            time_step_change = std::abs(time_step1 - time_step2)/time_step2;
         }
         else
             time_step_change = 0;
@@ -469,7 +469,7 @@ rkSolution solvePKESimple(Transient trans, RKdata rkParams, int shape_step,
         {
             double time_step1 = timeSteps[t+1] - timeSteps[t];
             double time_step2 = timeSteps[t] - timeSteps[t-1];
-            time_step_change = abs(time_step1 - time_step2)/time_step2;
+            time_step_change = std::abs(time_step1 - time_step2)/time_step2;
         }
         else
             time_step_change = 0;

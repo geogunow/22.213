@@ -1,4 +1,8 @@
 #include"diffSolver.h"
+#include"transientSolver.h"
+#include"ftSolver.h"
+#include"bdSolver.h"
+#include"pkeSolver.h"
 
 int main(){
     // initialize fuel cross sections
@@ -51,8 +55,8 @@ int main(){
     int nregions = 5;
     XSdata* mats[] = {&water, &fuel1, &fuel1, &fuel1, &water};
     double widths[] = {20.0, 15.0, 20.0, 15.0, 20.0};
-    //int npts[] = {20, 20, 30, 20, 20};
-    int npts[] = {1, 1, 1, 1, 1};
+    int npts[] = {20, 20, 30, 20, 20};
+    //int npts[] = {1, 1, 1, 1, 1};
     
     Mesh mesh;
     mesh.setMesh(npts, nregions);
@@ -78,12 +82,17 @@ int main(){
     std::vector<double> timeVector;
     std::vector<double> timeSteps;
 
-    double timeArray[] = {0, 1, 5};
+    double timeArray[] = {0, 1, 100};
     Mesh* meshArray[] = {&mesh, &mesh, &mesh};
     int n_interp = 3;
 
-    double ts[] = {0,1};
-    int nsteps = 2;
+    int nsteps = 100;
+    double ts[nsteps];
+    for(int i=0; i<nsteps; i++)
+        ts[i] = i;
+
+    //double ts[] = {0,1};
+    //int nsteps = 2;
 
     int I = 8;
     double chi_d[] = {1,0};
@@ -109,7 +118,7 @@ int main(){
     trans.setMeshVector(meshArray, n_interp);
     
     
-    rkSolution rkResult = solveTransientFT(trans, rkParams);
+    rkSolution rkResult = solveTransientBD(trans, rkParams, 1);
     std::vector<double> temp = rkResult.getPower();
     std::cout << "Success!" << endl;
     return 0;

@@ -9,10 +9,10 @@ rkSolution solveTransient(Transient trans, RKdata rkParams)
     std::vector<double> timeSteps = trans.timeSteps;
 
     // set transient variables
-    double tol = pow(10,-6);
+    double tol = trans.tolerance;
     int maxiters = pow(10,6);
-    double outer_tol = pow(10,-6);
-    double inner_tol = pow(10,-6);
+    double outer_tol = tol;
+    double inner_tol = tol;
     int inner_solver = 2;
     int sum_inner_iters = 0;
 

@@ -4,6 +4,7 @@
 rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
 {
     //TODO: error checking
+    std::cout << "Conducting BD Solver with BD = " << BD << endl;
      
     // get vectors
     std::vector<Mesh> meshVector = trans.meshVector;
@@ -51,6 +52,8 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
         std::vector<double> temp(rkParams.I, 0);
         C_sum.push_back(temp);
     }
+    std::vector<double> F_temp;
+    std::vector<std::vector<double> > C_temp;
 
     // create transient reactor kinetics soution object
     rkSolution rkResult = rkSolution();
@@ -250,13 +253,12 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
                 for(int b=0; b < BD; b++)
                 {
                     // check for beginning cases not to use back vectors
-                    std::vector<double> F;
                     if(t < b)
-                        F = flux[0];
+                        F_temp = flux[0];
                     else
-                        F = flux[b];
+                        F_temp = flux[b];
 
-                    F_sum[index(n,g)] += alpha[b+1] * F[index(n,g)];
+                    F_sum[index(n,g)] += alpha[b+1] * F_temp[index(n,g)];
                 }
             }
 
@@ -268,12 +270,11 @@ rkSolution solveTransientBD(Transient trans, RKdata rkParams, int BD)
                 for(int b=0; b < BD; b++)
                 {
                     // check for back vectors not available
-                    std::vector<std::vector<double> > C;
                     if(t < b)
-                        C = precursors[0];
+                        C_temp = precursors[0];
                     else
-                        C = precursors[b];
-                    C_sum[n][i] += alpha[b+1] * C[n][i];
+                        C_temp = precursors[b];
+                    C_sum[n][i] += alpha[b+1] * C_temp[n][i];
                 }
             }
         }
