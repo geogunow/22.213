@@ -15,7 +15,7 @@ int main()
     P.lambda = log(2.0) / 10.0;
     P.velocity = 2200 * sqrt(0.1/0.0253) * 100; //0.1 eV neutrons assumed
     P.ngen = 1500;
-    P.nhist = pow(10,5);
+    P.nhist = pow(10,3);
 
     // define transient
     int transient_step = 100;
@@ -26,8 +26,8 @@ int main()
     std::vector<vec3D> n_locs;
    
     // generate initial neutrons
-    std::stack<Neutron> starting = gen_initial_neutrons(P);
-    std::stack<Neutron> precursors = gen_initial_precursors(P);
+    int starting = P.ngen;
+    std::stack<double> precursors = gen_initial_precursors(P);
 
     // record initial neutron locations and population
     n_pop.push_back(P.nhist);
@@ -47,7 +47,7 @@ int main()
         follow_neutrons(starting, precursors, P);
 
         // record neutron locations and populations at each timestep
-        n_pop.push_back(starting.size());
+        n_pop.push_back(starting);
     }
 
     // print results to output file

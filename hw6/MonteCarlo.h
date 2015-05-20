@@ -49,10 +49,10 @@ struct Neutron
 // functions
 double urand();
 vec3D sample_flight_path();
-std::stack<Neutron> gen_initial_neutrons(ProblemDef P);
-std::stack<Neutron> gen_initial_precursors(ProblemDef P);
-void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt, 
-        std::stack<Neutron> &delayed, std::stack<Neutron> &stopped, 
+std::stack<double> gen_initial_neutrons(ProblemDef P);
+std::stack<double> gen_initial_precursors(ProblemDef P);
+void trace_neutron(double &neutron, std::stack<double> &prompt, 
+        std::stack<double> &delayed, std::stack<double> &stopped, 
         ProblemDef P);
-void follow_neutrons(std::stack<Neutron> &starting, 
-        std::stack<Neutron> &precursors, ProblemDef P);
+void follow_neutrons(int &starting, std::stack<double> &precursors, 
+        ProblemDef P);
