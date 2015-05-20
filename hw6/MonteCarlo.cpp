@@ -34,6 +34,7 @@ Creates initial neutron sites assuming an isotropic and uniform source
 */
 std::stack<Neutron> gen_initial_neutrons(ProblemDef P)
 {
+    srand(30);
     // initialize stack
     std::stack<Neutron> initial;
 
@@ -59,8 +60,39 @@ std::stack<Neutron> gen_initial_neutrons(ProblemDef P)
     }
     return initial;
 }
+/*
+Creates initial precurosr sites assuming an isotropic and uniform distiribution
+*/
+std::stack<Neutron> gen_initial_precursors(ProblemDef P)
+{
+    // initialize stack
+    std::stack<Neutron> precursors;
 
+    // calculate number of precursors
+    int n_precursors = P.beta * P.nhist * P.velocity * P.siga / P.lambda;
 
+    // create precursors
+    for(int i=0; i < n_precursors; i++)
+    {
+        // initialize neutron
+        Neutron neutron;
+
+        // initialize position
+        char vars[] = {'x', 'y', 'z'};
+        for(int j=0; j < 3; j++)
+        {
+            char var = vars[j];
+            neutron.loc[var] = urand() * P.width;
+        }
+
+        // initialize direction
+        neutron.unit = sample_flight_path();
+
+        // add neutron to stack
+        precursors.push(neutron);
+    }
+    return precursors;
+}
 /*
 Trace a neutron through a geometry, forming fission sites if encountered
 */
@@ -85,7 +117,7 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
         bool tracking = true;
         while(tracking)
         {
-            // calculate distance to intersection
+            // calculate distance to intersections
             char vars[] = {'x', 'y', 'z'};
             for(int i=0; i < 3; i++)
             {
@@ -95,8 +127,9 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
                 dist[var] = std::max(pos, neg);
             }
 
-            // calculate min distance
-            double min_dist = dist['x'];
+            // calculate min distance to intersection
+            double min_dist = s;
+            ref_surf.clear();
             for(int i=0; i < 3; i++)
             {
                 char var = vars[i];
@@ -137,20 +170,22 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
                 neutron.loc[var] += neutron.unit[var] * min_dist;
             }
           
-
             // add distance traveled to the time distance
             neutron.time_dist += min_dist;
-
-            // reflect off surfaces if applicable
-            for(int i=0; i < 3; i++)
-            {
-                char var = vars[i];
-                neutron.unit[var] *= -1;
-            }
 
             // check if original track length s is completed
             if(s <= 0)
                 tracking = false;
+            else
+            {
+                // reflect off surfaces if applicible
+                for(int i=0; i < 3; i++)
+                {
+                    char var = vars[i];
+                    neutron.unit[var] *= -1;
+                }
+            }
+
         }
 
         // determine if neutron is absorbed in collision
@@ -174,7 +209,7 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
                 {
                     // create neutron
                     Neutron new_neutron;
-                    new_neutron.loc = neutron.loc;
+                    new_neutron.loc = neutron.loc; //FIXME
                     new_neutron.unit = sample_flight_path();
                     new_neutron.time_dist = neutron.time_dist;
                     
@@ -206,15 +241,17 @@ void follow_neutrons(std::stack<Neutron> &starting,
     
     // hand precursors to delayed stack
     delayed.swap(precursors);
+        
+    // initialize tracked neutron
+    Neutron neutron;
 
     // cycle through all stacks until all are empty
     while(!prompt.empty() or !delayed.empty() or !starting.empty())
     {
         // pick a neutron
-        Neutron neutron;
         if(!starting.empty())
         {
-            neutron = starting.top();
+            neutron = starting.top(); //FIXME
             starting.pop();
             neutron.time_dist = 0;
         }
@@ -238,12 +275,16 @@ void follow_neutrons(std::stack<Neutron> &starting,
                 precursors.push(neutron);
                 continue;
             }
+            else
+            {
+                neutron.time_dist += urand() * dt;
+            }
         }
 
         // trace neturon through problem until death or time step completed
         trace_neutron(neutron, prompt, delayed, stopped, P);
     }
-    starting = stopped;
+    starting.swap(stopped);
 }
 
         
