@@ -34,7 +34,7 @@ Creates initial neutron sites assuming an isotropic and uniform source
 */
 std::stack<Neutron> gen_initial_neutrons(ProblemDef P)
 {
-    srand(30);
+    srand(10);
     // initialize stack
     std::stack<Neutron> initial;
 
@@ -43,17 +43,6 @@ std::stack<Neutron> gen_initial_neutrons(ProblemDef P)
     {
         // initialize neutron
         Neutron neutron;
-
-        // initialize position
-        char vars[] = {'x', 'y', 'z'};
-        for(int j=0; j < 3; j++)
-        {
-            char var = vars[j];
-            neutron.loc[var] = urand() * P.width;
-        }
-
-        // initialize direction
-        neutron.unit = sample_flight_path();
 
         // add neutron to stack
         initial.push(neutron);
@@ -76,17 +65,6 @@ std::stack<Neutron> gen_initial_precursors(ProblemDef P)
     {
         // initialize neutron
         Neutron neutron;
-
-        // initialize position
-        char vars[] = {'x', 'y', 'z'};
-        for(int j=0; j < 3; j++)
-        {
-            char var = vars[j];
-            neutron.loc[var] = urand() * P.width;
-        }
-
-        // initialize direction
-        neutron.unit = sample_flight_path();
 
         // add neutron to stack
         precursors.push(neutron);
@@ -119,7 +97,6 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
         {
             // add neutron to stopped bank
             stopped.push(neutron);
-
             return;
         }
 
@@ -147,8 +124,6 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
                 {
                     // create neutron
                     Neutron new_neutron;
-                    new_neutron.loc = neutron.loc; //FIXME
-                    new_neutron.unit = sample_flight_path();
                     new_neutron.time_dist = neutron.time_dist;
                     
                     // decide whether to emit neutron prompt or delayed
@@ -159,17 +134,13 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
                 }
             }
         }
-        
-        // scatter neutron
-        else
-            neutron.unit = sample_flight_path();
     }
     return;
 }
 
 
 /*
-Follows neutrons in starting stack unitl completion of time step
+Follows neutrons in starting stack until completion of time step
 */
 void follow_neutrons(std::stack<Neutron> &starting, 
         std::stack<Neutron> &precursors, ProblemDef P)

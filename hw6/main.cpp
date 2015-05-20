@@ -19,7 +19,7 @@ int main()
 
     // define transient
     int transient_step = 100;
-    double transient_magnitude = 1.00; //1.002;
+    double transient_magnitude = 1.002; //1.002;
 
     // initialize vectors to store information
     std::vector<int> n_pop;
