@@ -281,7 +281,7 @@ for b in b_vals:
         # record max power and end power
         pmax.append(max(P_trans))
         pend.append(P_trans[-1])
-        dt = 0.2 / (tsteps - 1)
+        dt = 2.0 / (tsteps - 1)
         p2.append(P_trans[int(0.2/dt)])
 
         # write results
