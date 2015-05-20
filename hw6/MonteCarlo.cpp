@@ -93,6 +93,7 @@ std::stack<Neutron> gen_initial_precursors(ProblemDef P)
     }
     return precursors;
 }
+
 /*
 Trace a neutron through a geometry, forming fission sites if encountered
 */
@@ -113,80 +114,17 @@ void trace_neutron(Neutron &neutron, std::stack<Neutron> &prompt,
         // sample distance to collision
         double s = -log(urand()) / P.sigt;
         
-        // complete track length s through reflections
-        bool tracking = true;
-        while(tracking)
+        // determine if max distance in time crossed
+        if(s + neutron.time_dist > 1.0 / P.siga)
         {
-            // calculate distance to intersections
-            char vars[] = {'x', 'y', 'z'};
-            for(int i=0; i < 3; i++)
-            {
-                char var = vars[i];
-                double pos = (P.width - neutron.loc[var]) / neutron.unit[var];
-                double neg = -neutron.loc[var] / neutron.unit[var];
-                dist[var] = std::max(pos, neg);
-            }
+            // add neutron to stopped bank
+            stopped.push(neutron);
 
-            // calculate min distance to intersection
-            double min_dist = s;
-            ref_surf.clear();
-            for(int i=0; i < 3; i++)
-            {
-                char var = vars[i];
-                if(dist[var] < min_dist)
-                {
-                    ref_surf.clear();
-                    ref_surf.push_back(var);
-                    min_dist = dist[var];
-                }
-                else if(dist[var] == min_dist)
-                    ref_surf.push_back(var);
-            }
-
-            // shorten distance
-            s -= min_dist;
-
-            // determine if max distance in time crossed
-            if(min_dist + neutron.time_dist > 1.0 / P.siga)
-            {
-                // move neutron
-                for(int i=0; i < 3; i++)
-                {
-                    char var = vars[i];
-                    neutron.loc[var] += neutron.unit[var] * 
-                        (1.0 / P.siga - neutron.time_dist);
-                }
-                
-                // add neutron to stopped bank
-                stopped.push(neutron);
-
-                return;
-            }
-
-            // move neutron
-            for(int i=0; i < 3; i++)
-            {
-                char var = vars[i];
-                neutron.loc[var] += neutron.unit[var] * min_dist;
-            }
-          
-            // add distance traveled to the time distance
-            neutron.time_dist += min_dist;
-
-            // check if original track length s is completed
-            if(s <= 0)
-                tracking = false;
-            else
-            {
-                // reflect off surfaces if applicible
-                for(int i=0; i < 3; i++)
-                {
-                    char var = vars[i];
-                    neutron.unit[var] *= -1;
-                }
-            }
-
+            return;
         }
+
+        // add distance traveled to the time distance
+        neutron.time_dist += s;
 
         // determine if neutron is absorbed in collision
         if(urand() < P.siga / P.sigt)
