@@ -11,11 +11,11 @@ int main()
     P.sigf = P.sigc / (P.nu - 1);
     P.siga = P.sigf + P.sigc;
     P.sigt = P.sigs + P.siga;
-    P.beta = 0; // 0.01
+    P.beta = 0.01; // 0.01
     P.lambda = log(2.0) / 10.0;
     P.velocity = 2200 * sqrt(0.1/0.0253) * 100; //0.1 eV neutrons assumed
     P.ngen = 1500;
-    P.nhist = pow(10,4);
+    P.nhist = pow(10,5);
 
     // define transient
     int transient_step = 100;

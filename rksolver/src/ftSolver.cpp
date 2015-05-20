@@ -195,8 +195,7 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
             for(int g=0; g < mesh._G; g++)
             {
                 old_flux_total[n] += flux[index(n,g)];
-                psi[index(n,g)] *= exp(omega[n]*dt);
-                new_flux_total[n] += psi[index(n,g)];
+                new_flux_total[n] += psi[index(n,g)] * exp(omega[n]*dt);
             }
         }
 
@@ -218,15 +217,10 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
             for(int n=0; n < mesh._N; n++)
                 omega[n] = log(new_flux_total[n] / old_flux_total[n]) / dt;
 
-        // copy new flux estimate if unsynchronized
+        // calculate new precursors and copy new flux estimate if unsynchronized
         if(omegaMode == 1 or omegaMode == 2
                 or (omegaMode > 2 && !firstIter) )
         {
-            // copy flux
-            for(int n=0; n < mesh._N; n++)
-                for(int g=0; g < mesh._G; g++)
-                   flux[index(n,g)] = psi[index(n,g)];
- 
             // calculate new neutron precursors
             for(int n=0; n < mesh._N; n++)
             {
@@ -256,6 +250,10 @@ rkSolution solveTransientFT(Transient trans, RKdata rkParams, int omegaMode)
                     }
                 }
             }
+            // copy flux
+            for(int n=0; n < mesh._N; n++)
+                for(int g=0; g < mesh._G; g++)
+                   flux[index(n,g)] = psi[index(n,g)] * exp(omega[n]*dt);
         }
 
         // calculate total power (assuming nu is constant)

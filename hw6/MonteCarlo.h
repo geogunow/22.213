@@ -43,8 +43,6 @@ struct ProblemDef
 
 struct Neutron
 {
-    vec3D loc;
-    vec3D unit;
     double time_dist;
 };
 
