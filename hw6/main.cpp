@@ -2,6 +2,8 @@
 
 int main()
 {
+    srand(20);
+
     // define problem
     ProblemDef P;
     P.width = 400;
@@ -15,7 +17,7 @@ int main()
     P.lambda = log(2.0) / 10.0;
     P.velocity = 2200 * sqrt(0.1/0.0253) * 100; //0.1 eV neutrons assumed
     P.ngen = 1500;
-    P.nhist = pow(10,3);
+    P.nhist = pow(10,4);
 
     // define transient
     int transient_step = 100;
@@ -26,8 +28,8 @@ int main()
     std::vector<vec3D> n_locs;
    
     // generate initial neutrons
-    int starting = P.ngen;
-    std::stack<double> precursors = gen_initial_precursors(P);
+    int starting = P.nhist;
+    int precursors = P.beta * P.nhist * P.velocity * P.siga / P.lambda;
 
     // record initial neutron locations and population
     n_pop.push_back(P.nhist);

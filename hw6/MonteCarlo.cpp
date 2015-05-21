@@ -10,72 +10,11 @@ double urand()
 
 
 /*
-Function to sample a unit vector assuming isotropic
-*/
-vec3D sample_flight_path()
-{
-    // initialize unit vector
-    vec3D unit;
-
-    // sample angles
-    double phi = 2 * M_PI * urand();
-    double mu = 2 * urand() - 1;
-
-    // calculate unit vectors
-    unit['x'] = sqrt(1 - pow(mu,2)) * cos(phi);
-    unit['y'] = sqrt(1 - pow(mu,2)) * sin(phi);
-    unit['z'] = mu;
-
-    return unit;
-}
-
-/*
-Creates initial neutron sites assuming an isotropic and uniform source
-*/
-std::stack<double> gen_initial_neutrons(ProblemDef P)
-{
-    srand(10);
-    // initialize stack
-    std::stack<double> initial;
-
-    // loop over number of initial neutron histories
-    for(int i=0; i < P.nhist; i++)
-    {
-        // add neutron to stack
-        initial.push(0);
-    }
-    return initial;
-}
-/*
-Creates initial precurosr sites assuming an isotropic and uniform distiribution
-*/
-std::stack<double> gen_initial_precursors(ProblemDef P)
-{
-    // initialize stack
-    std::stack<double> precursors;
-
-    // calculate number of precursors
-    int n_precursors = P.beta * P.nhist * P.velocity * P.siga / P.lambda;
-
-    // create precursors
-    for(int i=0; i < n_precursors; i++)
-    {
-        // add neutron to stack
-        precursors.push(0);
-    }
-    return precursors;
-}
-
-/*
 Trace a neutron through a geometry, forming fission sites if encountered
 */
 void trace_neutron(double &neutron, std::stack<double> &prompt, 
-        std::stack<double> &delayed, int &stopped, ProblemDef P)
+        int &precursors, int &stopped, ProblemDef P)
 {
-    // initialize vectors
-    vec3D dist;
-    std::vector<char> ref_surf;
-
     // set boolean tracker to alive
     bool alive = true;
 
@@ -120,7 +59,19 @@ void trace_neutron(double &neutron, std::stack<double> &prompt,
                     
                     // decide whether to emit neutron prompt or delayed
                     if(urand() < P.beta)
-                        delayed.push(new_neutron);
+                    {
+                        // determine whether neutron decays in this timestep
+                        double dt = (1.0/P.siga - neutron) / P.velocity;
+                        double prob_survival = exp(-P.lambda * dt);
+                        if(urand() < prob_survival)
+                            precursors += 1;
+                        else
+                        {
+                            new_neutron += urand() * dt;
+                            prompt.push(new_neutron);
+                        }
+
+                    }
                     else
                         prompt.push(new_neutron);
                 }
@@ -134,21 +85,21 @@ void trace_neutron(double &neutron, std::stack<double> &prompt,
 /*
 Follows neutrons in starting stack until completion of time step
 */
-void follow_neutrons(int &starting, std::stack<double> &precursors, 
-        ProblemDef P)
+void follow_neutrons(int &starting, int &precursors, ProblemDef P)
 {
-    // initialize prompt, delayed, and stopped stacks
-    std::stack<double> prompt, delayed;
+    // initialize prompt and stopped stacks
+    std::stack<double> prompt;
     int stopped = 0;
     
     // hand precursors to delayed stack
-    delayed.swap(precursors);
+    int delayed = precursors;
+    precursors = 0;
         
     // initialize tracked neutron
     double neutron;
 
     // cycle through all stacks until all are empty
-    while(!prompt.empty() or !delayed.empty() or starting != 0)
+    while(!prompt.empty() or delayed != 0 or starting != 0)
     {
         // pick a neutron
         if(starting != 0)
@@ -164,26 +115,22 @@ void follow_neutrons(int &starting, std::stack<double> &precursors,
         else
         {
             // pick out a delayed neutron
-            neutron = delayed.top();
-            delayed.pop();
+            delayed -= 1;
 
-            // decide whether to use it or add to the stack
-            double dt = (1.0/P.siga - neutron) / P.velocity;
+            // determine if delayed neutron will decay in timestep
+            double dt = 1.0 / (P.siga * P.velocity);
             double prob_survival = exp(-P.lambda * dt);
             if(urand() < prob_survival)
             {
-                neutron = 0;
-                precursors.push(neutron);
+                precursors += 1;
                 continue;
             }
             else
-            {
-                neutron += urand() * dt;
-            }
+                neutron = urand() * dt;
         }
 
         // trace neturon through problem until death or time step completed
-        trace_neutron(neutron, prompt, delayed, stopped, P);
+        trace_neutron(neutron, prompt, precursors, stopped, P);
     }
     starting = stopped;
 }

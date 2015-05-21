@@ -52,7 +52,5 @@ vec3D sample_flight_path();
 std::stack<double> gen_initial_neutrons(ProblemDef P);
 std::stack<double> gen_initial_precursors(ProblemDef P);
 void trace_neutron(double &neutron, std::stack<double> &prompt, 
-        std::stack<double> &delayed, std::stack<double> &stopped, 
-        ProblemDef P);
-void follow_neutrons(int &starting, std::stack<double> &precursors, 
-        ProblemDef P);
+        int &precursors, int &stopped, ProblemDef P);
+void follow_neutrons(int &starting, int &precursors, ProblemDef P);
